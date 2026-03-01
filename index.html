@@ -1,0 +1,2202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FORM·RIFT</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#050508;--pc:#00ffcc;--ec:#ff4060;--acc:#ffe040;--ui:rgba(5,5,15,0.9);--txt:#c8d8ff;}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;
+  overflow:hidden;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
+#gw{position:relative;width:900px;height:600px;}
+canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
+  box-shadow:0 0 60px rgba(0,255,204,0.05),inset 0 0 80px rgba(0,0,20,0.8);cursor:crosshair;}
+
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+  align-items:flex-start;padding:12px 16px;pointer-events:none;}
+.hud-l{display:flex;flex-direction:column;gap:5px;}
+.bar-row{display:flex;align-items:center;gap:8px;}
+.bar-lbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;opacity:.6;}
+.bar-track{height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+#hpTrack{width:130px;height:5px;position:relative;}#enTrack{width:130px;height:3px;}#shTrack{width:130px;}
+#hpFill{height:100%;background:linear-gradient(90deg,#00cc99,#00ffcc);box-shadow:0 0 6px #00ffcc;transition:width .2s;border-radius:3px;}
+#enFill{height:100%;background:linear-gradient(90deg,#ffe040aa,#ffe040);transition:width .15s;border-radius:3px;}
+#shFill{height:100%;background:linear-gradient(90deg,#60a0ff,#a0c8ff);box-shadow:0 0 6px #a0c8ff;transition:width .2s;border-radius:3px;}
+.hud-r{text-align:right;font-family:'Orbitron',monospace;font-size:10px;color:rgba(200,216,255,.45);letter-spacing:1px;}
+#scoreVal{font-size:20px;font-weight:900;color:var(--acc);text-shadow:0 0 10px #ffe040;line-height:1.1;}
+#stageLbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:rgba(200,216,255,.3);}
+#shieldRow{display:none;} /* legacy, now merged into hpTrack */
+#spellOverlay{position:absolute;inset:0;pointer-events:none;z-index:6;opacity:0;transition:opacity .15s;}
+#spellCanvas{position:absolute;inset:0;cursor:crosshair;display:none;z-index:7;}
+#spellHUD{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;color:rgba(180,140,255,.8);
+  pointer-events:none;text-align:center;display:none;}
+#spellCD{position:absolute;bottom:12px;right:16px;font-family:'Orbitron',monospace;
+  font-size:9px;letter-spacing:1px;color:rgba(180,140,255,.5);pointer-events:none;}
+#eChargeRing{position:absolute;pointer-events:none;display:none;z-index:9;}
+
+#blessingBar{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:5px;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:520px;}
+.b-badge{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;
+  padding:3px 9px;border-radius:12px;border:1px solid;white-space:nowrap;}
+
+#atkHint{position:absolute;top:46px;right:16px;font-family:'Orbitron',monospace;
+  font-size:9px;letter-spacing:1px;color:rgba(255,224,64,.6);pointer-events:none;text-align:right;}
+
+#wc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:8;}
+#wcTxt{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:var(--acc);
+  text-shadow:0 0 20px var(--acc);opacity:0;letter-spacing:6px;transform:scale(.8);
+  transition:opacity .3s,transform .3s;}
+#wcTxt.show{opacity:1;transform:scale(1);}
+
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(5,5,8,.94);backdrop-filter:blur(4px);z-index:10;}
+.screen.hidden{display:none;}
+.s-title{font-family:'Orbitron',monospace;font-size:40px;font-weight:900;letter-spacing:6px;
+  color:var(--pc);text-shadow:0 0 28px var(--pc),0 0 56px rgba(0,255,204,.25);margin-bottom:6px;}
+.s-sub{font-size:12px;color:rgba(200,216,255,.4);letter-spacing:3px;margin-bottom:36px;}
+.btn{font-family:'Orbitron',monospace;font-size:12px;letter-spacing:3px;padding:11px 34px;
+  background:transparent;border:1px solid var(--pc);color:var(--pc);cursor:pointer;transition:all .2s;}
+.btn:hover{background:rgba(0,255,204,.1);box-shadow:0 0 18px rgba(0,255,204,.3);}
+.d-msg{font-size:12px;color:rgba(255,64,96,.6);margin-bottom:28px;letter-spacing:2px;}
+
+#tutPanel{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  background:var(--ui);border:1px solid rgba(0,255,204,.2);border-radius:4px;
+  padding:11px 22px;text-align:center;max-width:500px;backdrop-filter:blur(6px);display:none;}
+#tutTitle{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;
+  color:var(--pc);margin-bottom:5px;opacity:.7;}
+#tutTxt{font-size:12px;line-height:1.7;color:var(--txt);}
+#tutDots{display:flex;gap:5px;justify-content:center;margin-top:8px;}
+.dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.15);transition:background .3s;}
+.dot.on{background:var(--pc);box-shadow:0 0 5px var(--pc);}
+.dot.done{background:rgba(0,255,204,.4);}
+
+#blsScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(3,4,10,.97);backdrop-filter:blur(10px);z-index:12;}
+#blsScreen.hidden{display:none;}
+.bls-hdr{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:4px;color:var(--acc);opacity:.55;margin-bottom:8px;}
+.bls-ttl{font-family:'Orbitron',monospace;font-size:28px;font-weight:900;letter-spacing:4px;
+  color:var(--acc);text-shadow:0 0 20px #ffe040;margin-bottom:5px;}
+.bls-sub{font-size:12px;color:rgba(200,216,255,.4);letter-spacing:2px;margin-bottom:32px;}
+.bls-cards{display:flex;gap:16px;}
+.bls-card{width:200px;padding:20px 18px;border:1px solid rgba(255,224,64,.2);
+  background:rgba(12,11,4,.85);cursor:pointer;transition:all .22s;
+  display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;}
+.bls-card::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(255,224,64,.07),transparent 70%);
+  opacity:0;transition:opacity .3s;}
+.bls-card:hover{border-color:rgba(255,224,64,.65);transform:translateY(-4px);box-shadow:0 8px 32px rgba(255,224,64,.15);}
+.bls-card:hover::before{opacity:1;}
+.bc-icon{font-size:32px;margin-bottom:12px;line-height:1;}
+.bc-name{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:2px;
+  color:var(--acc);margin-bottom:6px;text-align:center;}
+.bc-type{font-size:9px;color:rgba(200,216,255,.3);letter-spacing:1px;margin-bottom:10px;font-style:italic;}
+.bc-desc{font-size:11px;color:rgba(200,216,255,.65);line-height:1.6;text-align:center;}
+.bc-tag{margin-top:12px;padding:2px 8px;border:1px solid rgba(255,224,64,.25);border-radius:2px;
+  font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:rgba(255,224,64,.5);}
+
+#eliteEntrance{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none;z-index:9;}
+#eliteName{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;letter-spacing:4px;
+  color:#ff8060;text-shadow:0 0 20px #ff6040;opacity:0;transform:scale(.7);
+  transition:opacity .5s,transform .5s;}
+#eliteName.show{opacity:1;transform:scale(1);}
+#eliteSub{font-size:11px;color:rgba(255,128,96,.5);letter-spacing:3px;margin-top:6px;
+  opacity:0;transition:opacity .5s .2s;}
+#eliteSub.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="gw">
+  <canvas id="c" width="900" height="600"></canvas>
+  <div id="spellOverlay"></div>
+  <canvas id="spellCanvas" width="900" height="600"></canvas>
+  <div id="spellHUD"></div>
+  <div id="spellCD">SPELL READY</div>
+  <svg id="eChargeRing" width="60" height="60" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(180,140,255,.25)" stroke-width="2"/>
+    <circle id="eChargeArc" cx="30" cy="30" r="24" fill="none" stroke="#c080ff"
+      stroke-width="2.5" stroke-dasharray="150.8" stroke-dashoffset="150.8"
+      stroke-linecap="round" transform="rotate(-90 30 30)" style="transition:stroke-dashoffset .05s"/>
+  </svg>
+  <div id="hud">
+    <div class="hud-l">
+      <div class="bar-row">
+        <span class="bar-lbl" style="color:var(--pc)">HP</span>
+        <div class="bar-track" id="hpTrack" style="position:relative;">
+          <div id="hpFill"  style="width:100%;position:absolute;top:0;left:0;height:100%;border-radius:3px;background:linear-gradient(90deg,#00cc99,#00ffcc);box-shadow:0 0 6px #00ffcc;transition:width .2s;"></div>
+          <div id="shFill"  style="width:0%;position:absolute;top:0;left:0;height:100%;border-radius:3px;background:linear-gradient(90deg,rgba(96,160,255,.55),rgba(160,200,255,.6));transition:width .2s;"></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-lbl" style="color:var(--acc)">EN</span>
+        <div class="bar-track" id="enTrack"><div id="enFill" style="width:100%"></div></div>
+      </div>
+      <div class="bar-row" id="ultRow" style="display:none;">
+        <span class="bar-lbl" style="color:#c060ff">ULT</span>
+        <div class="bar-track" id="ultTrack" style="width:130px;height:4px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;"><div id="ultFill" style="width:0%;height:100%;background:linear-gradient(90deg,#a020ff,#e060ff);box-shadow:0 0 6px #c060ff;transition:width .15s;border-radius:3px;"></div></div>
+      </div>
+    </div>
+    <div class="hud-r">
+      <div id="stageLbl">STAGE 1</div>
+      <div style="margin-bottom:1px;font-size:9px">SCORE</div>
+      <div id="scoreVal">0</div>
+    </div>
+  </div>
+  <div id="blessingBar"></div>
+  <div id="atkHint"></div>
+  <div id="tutPanel">
+    <div id="tutTitle">TUTORIAL</div>
+    <div id="tutTxt"></div>
+    <div id="tutDots"></div>
+  </div>
+  <div id="wc"><div id="wcTxt">CLEARED</div></div>
+  <div id="eliteEntrance"><div id="eliteName"></div><div id="eliteSub"></div></div>
+
+  <div class="screen" id="titleScreen">
+    <div class="s-title">FORM·RIFT</div>
+    <div class="s-sub">GEOMETRIC ROGUELITE · 10 STAGES</div>
+    <button class="btn" id="startBtn">START</button>
+    <div style="margin-top:18px;font-size:10px;color:rgba(200,216,255,.25);
+      letter-spacing:2px;text-align:center;line-height:2.4">
+      WASD MOVE &nbsp;·&nbsp; MOUSE AIM<br>
+      LEFT CLICK × 3 → TRIANGLE ATTACK<br>
+      RIGHT CLICK → SHIELD (if unlocked)
+    </div>
+  </div>
+
+  <div id="blsScreen" class="hidden">
+    <div class="bls-hdr" id="blsHdr">STAGE CLEARED</div>
+    <div class="bls-ttl">CHOOSE A BLESSING</div>
+    <div class="bls-sub" id="blsSub">Select one to carry forward</div>
+    <div class="bls-cards" id="blsCards"></div>
+  </div>
+
+  <div class="screen hidden" id="deathScreen">
+    <div class="s-title" style="color:var(--ec);text-shadow:0 0 28px var(--ec)">DISSOLVED</div>
+    <div class="d-msg" id="deathMsg">FORM LOST</div>
+    <button class="btn" style="border-color:var(--ec);color:var(--ec)" id="restartBtn">RETRY</button>
+  </div>
+
+  <div class="screen hidden" id="winScreen">
+    <div class="s-title">ASCENDED</div>
+    <div class="s-sub">10 STAGES CLEARED</div>
+    <div style="font-size:12px;color:rgba(200,216,255,.5);margin-bottom:28px" id="finalScore"></div>
+    <button class="btn" id="playAgainBtn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+const C=document.getElementById('c'),ctx=C.getContext('2d');
+const W=900,H=600;
+let gs='title',keys={},mouse={x:W/2,y:H/2};
+let score=0,fc=0,stage=1,spawnedAll=false;
+
+// ── Player ───────────────────────────────────────────────
+const P={x:W/2,y:H/2,size:18,angle:0,speed:3.2,
+  hp:100,maxHp:100,shield:0,maxShield:0,
+  en:100,maxEn:100,enRegen:.18,
+  ult:0,maxUlt:100,           // ultimate gauge
+  invincible:0,trail:[],dmgMult:1.0};
+
+// ── Blessings ─────────────────────────────────────────────
+let activeBlessings=new Set();
+function hasB(id){return activeBlessings.has(id);}
+function addB(id){activeBlessings.add(id);}
+
+// ── Objects ───────────────────────────────────────────────
+let enemies=[],particles=[],eBullets=[],burnMarks=[],slowZones=[];
+let tPts=[],tAnim=null,tAnim2=[],triProjectiles=[],dmgNums=[];
+let triHazards=[];  // lingering triangle burn+slow zones from elite skill
+let explosions=[];  // dash-bomber explosion rings
+let eliteShieldCircle=null;
+let gridOff=0;
+
+// ── Spell System ─────────────────────────────────────────────
+let spellState='off';       // off | charging | casting | cooldown
+let spellCharge=0;          // frames held (need 24 = 0.4s)
+let spellTimer=0;           // frames in casting mode
+let spellCooldown=0;        // frames remaining on cooldown
+const SPELL_CHARGE_MS=400;   // 0.4s hold to activate
+const SPELL_MAX_MS=10000;    // 10s max casting (real ms)
+const SPELL_CD_LONG_MS=60000; // 60s cooldown (real ms)
+const SPELL_CD_SHORT_MS=5000; // 5s fail cooldown (real ms)
+const SPELL_TIMESCALE=0.08;  // world speed during cast
+// Legacy frame-based aliases (kept for compatibility)
+const SPELL_CHARGE_FRAMES=24;
+const SPELL_MAX_FRAMES=600;
+const SPELL_CD_LONG=3600;
+const SPELL_CD_SHORT=300;
+let timeScale=1.0;          // global time multiplier
+let spellStroke=[];         // current in-progress stroke
+let spellStrokes=[];        // all completed strokes (multi-stroke support)
+let spellResult=null;       // recognised spell name or null
+let spellFlash=null;        // {msg,color,timer}
+let spellKnown=new Set();   // spells the player has learned
+let activeSpell=null;       // currently equipped spell (only 1 at a time)
+let reviveTokens=0;         // DY easter egg reward
+let spellCtx=null;          // 2D context for spell canvas
+
+// ── Boss Quadrant State ──────────────────────────────────────
+let bossQuadrant=1;        // 1-4 current quadrant
+let bossOverview=false;    // overview zoom-out animation active
+let bossOverviewTimer=0;   // frames of overview
+const OVERVIEW_FRAMES=150; // 2.5s overview
+let bossLasers=[];         // axis-aligned laser attacks
+let bossCages=[];          // quadrant cage lines
+let bossPhaseTimer=0;           // frames since last quadrant switch
+const BOSS_PHASE_INTERVAL=1200; // switch every 20s (1200 frames)
+const BOSS_COUNTDOWN_START=240; // 4s countdown before switch (240 frames)
+let bossCountdown=0;            // >0 means countdown is active
+let bossSliceWarnings=[];  // mirror-slice warning lines
+
+// ── Tutorial ──────────────────────────────────────────────
+const TUTS=[
+  {t:'MOVE',     tx:'Use <b>WASD</b> to move your triangle form.',                              c:()=>pMoved>=80},
+  {t:'AIM',      tx:'Move the <b>mouse</b> to rotate toward enemies.',                           c:()=>mMoved>=60},
+  {t:'ATTACK',   tx:'<b>Click 3 points</b> to draw a triangle zone — enemies inside take damage.',c:()=>atkUsed>=1},
+  {t:'CLEAR',    tx:'Enemies incoming! <b>Destroy them all</b> to clear the stage.',              c:()=>enemies.length===0&&spawnedAll},
+];
+let tutStep=0,pMoved=0,mMoved=0,atkUsed=0;
+
+// ── Stage definitions ─────────────────────────────────────
+const STAGES=[
+  {spawns:[{t:'melee',n:4}],           elite:false,boss:false}, // 1
+  {spawns:[{t:'melee',n:7}],           elite:false,boss:false}, // 2
+  {spawns:[{t:'melee',n:4},{t:'ranged',n:2}],   elite:false,boss:false}, // 3
+  {spawns:[{t:'melee',n:3},{t:'ranged',n:2},{t:'fast',n:3}],elite:false,boss:false}, // 4
+  {spawns:[{t:'melee',n:3},{t:'fast',n:2}],     elite:true, boss:false}, // 5 ELITE
+  {spawns:[{t:'melee',n:3},{t:'ranged',n:3},{t:'tank',n:2}],elite:false,boss:false}, // 6
+  {spawns:[{t:'fast',n:4},{t:'ranged',n:3},{t:'tank',n:2}], elite:false,boss:false}, // 7
+  {spawns:[{t:'melee',n:4},{t:'ranged',n:4},{t:'fast',n:3},{t:'tank',n:2}],elite:false,boss:false}, // 8
+  {spawns:[{t:'fast',n:5},{t:'ranged',n:4},{t:'tank',n:3}], elite:false,boss:false}, // 9
+  {spawns:[],                          elite:false,boss:true}, // 10 BOSS
+];
+
+function makeEnemy(type,x,y){
+  const base={x,y,spinAngle:0,flashTimer:0,type,shootTimer:0,shielded:false,shieldHp:0,vx:0,vy:0};
+  const stats={
+    melee: {hp:40, maxHp:40, size:13,speed:.95, color:'#ff4060',reward:80},
+    ranged:{hp:28, maxHp:28, size:11,speed:.55, color:'#ff80a0',reward:120,shootCd:180},
+    fast:  {hp:20, maxHp:20, size:9, speed:2.3, color:'#ff6020',reward:150},
+    tank:  {hp:100,maxHp:100,size:21,speed:.42, color:'#cc2040',reward:220},
+    elite_triangle:{hp:350,maxHp:350,size:28,speed:.7,color:'#ff8060',reward:600,
+      skillTimer:0,skillInterval:220,skillIndex:0},
+    boss:  {hp:900,maxHp:900,size:36,speed:.5, color:'#ff4040',reward:2000,
+      skillTimer:0,skillInterval:160},
+  }[type]||{hp:40,maxHp:40,size:13,speed:.9,color:'#ff4060',reward:80};
+  return Object.assign(base,stats);
+}
+
+// ── Blessing pools ────────────────────────────────────────
+const ATK_BLS=[
+  {id:'double_tri',  name:'Mirror Triangle',  icon:'△△', type:'ELITE REWARD',
+   desc:'Your triangle spawns <b>2 mirror copies</b> at random map positions.',
+   tag:'ECHO ATTACK',color:'#00ffcc'},
+  {id:'tri_charge',  name:'Charging Form',    icon:'▷',  type:'ELITE REWARD',
+   desc:'After firing, the <b>triangle itself flies</b> toward your mouse, damaging every enemy it passes through. Larger triangles cost more energy.',
+   tag:'DASH STRIKE',color:'#ff8c40'},
+  {id:'equilateral', name:'Perfect Geometry', icon:'◬',  type:'ELITE REWARD',
+   desc:'Drawing a triangle <b>≥80% equilateral</b> triggers a <b>2× critical hit</b>.',
+   tag:'SKILL CRIT',color:'#ffe040'},
+];
+const STAT_BLS=[
+  {id:'hp_up',    name:'Fortified Form',   icon:'♥',  type:'PASSIVE',
+   desc:'<b>+25 max HP</b> and restore 25 HP.',tag:'HP BOOST',color:'#ff6080'},
+  {id:'dmg_up',   name:'Sharp Angles',     icon:'⚡', type:'PASSIVE',
+   desc:'<b>+20% attack damage</b>.',tag:'DAMAGE',color:'#ffe040'},
+  {id:'spd_up',   name:'Fluid Motion',     icon:'◈',  type:'PASSIVE',
+   desc:'<b>+15% move speed</b>.',tag:'SPEED',color:'#00ffcc'},
+  {id:'en_regen', name:'Energy Flow',      icon:'◉',  type:'PASSIVE',
+   desc:'<b>+50% energy regen</b> rate.',tag:'ENERGY',color:'#80c0ff'},
+  {id:'burn',     name:'Searing Trace',    icon:'◎',  type:'PASSIVE',
+   desc:'Kills leave a <b>burn field</b> that damages nearby enemies.',tag:'ZONE',color:'#c060ff'},
+  {id:'shield_kill',name:'Geometric Ward', icon:'⬡',  type:'PASSIVE',
+   desc:'Each kill grants <b>+5 shield</b> (max 40).',tag:'SHIELD',color:'#60a0ff'},
+  {id:'hp_heal',  name:'Resonance Mend',   icon:'✦',  type:'PASSIVE',
+   desc:'Restore <b>30 HP</b>.',tag:'HEAL',color:'#60ffb0'},
+  // Combo blessings
+  {id:'burn_slow',name:'Scorched Path',    icon:'🌀', type:'COMBO',
+   desc:'Burn fields also <b>slow enemies 60%</b>.',tag:'BURN+SLOW',color:'#ff8040',req:'burn'},
+  {id:'burn_dmg', name:'Cauterize',        icon:'🔥', type:'COMBO',
+   desc:'Burn damage <b>+50% per tick</b>.',tag:'BURN+DMG',color:'#ff6020',req:'burn'},
+];
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function getBlessings(s){
+  if(s===5||s===10) return shuffle([...ATK_BLS]).slice(0,3);
+  const pool=STAT_BLS.filter(b=>!b.req||hasB(b.req));
+  return shuffle(pool).slice(0,3);
+}
+
+function applyBlessing(id){
+  addB(id);
+  if(id==='hp_up'){P.maxHp+=25;P.hp=Math.min(P.maxHp,P.hp+25);}
+  if(id==='dmg_up') P.dmgMult+=0.2;
+  if(id==='spd_up') P.speed*=1.15;
+  if(id==='en_regen') P.enRegen*=1.5;
+  if(id==='hp_heal') P.hp=Math.min(P.maxHp,P.hp+30);
+  if(id==='shield_kill'){P.maxShield=40;(document.getElementById('shieldRow')||{style:{}}).style.display='flex';}
+  updateBBar();
+}
+
+function updateBBar(){
+  const bar=document.getElementById('blessingBar');bar.innerHTML='';
+  const all=[...ATK_BLS,...STAT_BLS];
+  activeBlessings.forEach(id=>{
+    const b=all.find(x=>x.id===id);if(!b)return;
+    const d=document.createElement('div');d.className='b-badge';
+    d.style.color=b.color;d.style.borderColor=b.color;
+    d.style.background=b.color+'18';d.innerText=b.icon+' '+b.name;
+    bar.appendChild(d);
+  });
+}
+
+// ── Input ─────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  keys[e.key.toLowerCase()]=true;
+  if(e.key.toLowerCase()==='e'&&!e.repeat) startECharge();
+});
+document.addEventListener('keyup',e=>{
+  keys[e.key.toLowerCase()]=false;
+  if(e.key.toLowerCase()==='e') cancelECharge();
+});
+C.addEventListener('mousemove',e=>{
+  const r=C.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;
+  if(['tutorial','playing'].includes(gs))mMoved++;
+});
+// Spell canvas: press-and-drag to draw, release to recognise
+let spellDrawing=false;
+document.getElementById('spellCanvas').addEventListener('mousedown',e=>{
+  if(spellState!=='casting'||e.button!==0) return;
+  spellDrawing=true;
+  spellStroke=[];  // start a new stroke segment
+  const r=e.target.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  spellStroke.push({x,y});
+  drawAllStrokes();
+});
+document.getElementById('spellCanvas').addEventListener('mousemove',e=>{
+  const r=e.target.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  mouse.x=x;mouse.y=y;
+  if(spellState==='casting'&&spellDrawing){
+    spellStroke.push({x,y});
+    drawAllStrokes();
+  }
+});
+document.getElementById('spellCanvas').addEventListener('mouseup',e=>{
+  if(e.button!==0) return;
+  if(spellState==='casting'&&spellDrawing){
+    spellDrawing=false;
+    if(spellStroke.length>2) spellStrokes.push([...spellStroke]);
+    spellStroke=[];
+    tryRecogniseSpell();
+  }
+});
+document.getElementById('spellCanvas').addEventListener('mouseleave',e=>{
+  if(spellState==='casting'&&spellDrawing){
+    spellDrawing=false;
+    if(spellStroke.length>2) spellStrokes.push([...spellStroke]);
+    spellStroke=[];
+    tryRecogniseSpell();
+  }
+});
+// Right-click on spell canvas = clear all strokes
+document.getElementById('spellCanvas').addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(spellState==='casting'){
+    spellStrokes=[];spellStroke=[];
+    if(spellCtx) spellCtx.clearRect(0,0,900,600);
+    showSpellFlash('CANVAS CLEARED','rgba(180,140,255,.7)');
+  }
+});
+C.addEventListener('click',e=>{
+  if(!['tutorial','playing'].includes(gs))return;
+  const r=C.getBoundingClientRect();addTPoint(e.clientX-r.left,e.clientY-r.top);
+});
+C.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(!['tutorial','playing'].includes(gs))return;
+  // Ult fires when gauge full, otherwise fall back to shield
+  if(P.ult>=P.maxUlt){
+    P.ult=0;updateUltHUD();
+    fireUlt();
+    return;
+  }
+  if(P.en>=30){
+    P.shield=Math.min(P.maxShield||50,P.shield+50);
+    if(!P.maxShield)P.maxShield=50;
+    P.en-=30;spawnParts(P.x,P.y,'#60a0ff',20);
+  }
+});
+document.getElementById('startBtn').addEventListener('click',startGame);
+document.getElementById('restartBtn').addEventListener('click',startGame);
+document.getElementById('playAgainBtn').addEventListener('click',startGame);
+
+// ── Game init ──────────────────────────────────────────────
+function startGame(){
+  score=0;fc=0;stage=1;spawnedAll=false;
+  spellState='off';spellCharge=0;spellTimer=0;spellCooldown=0;
+  spellStroke=[];spellStrokes=[];spellResult=null;spellFlash=null;activeSpell=null;
+  timeScale=1.0;STATE_HISTORY.length=0;reviveTokens=0;
+  document.getElementById('spellOverlay').style.opacity='0';
+  document.getElementById('spellCanvas').style.display='none';
+  document.getElementById('spellHUD').style.display='none';
+  updateChargeRing(0);updateSpellCD();updateReviveHUD();
+  Object.assign(P,{x:W/2,y:H/2,hp:100,maxHp:100,shield:0,maxShield:0,
+    en:100,maxEn:100,enRegen:.18,ult:0,maxUlt:100,invincible:0,trail:[],speed:3.2,dmgMult:1.0});
+  const ultRowEl=document.getElementById('ultRow');if(ultRowEl)ultRowEl.style.display='flex';
+  updateUltHUD();
+  activeBlessings.clear();
+  enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
+  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;
+  tutStep=0;pMoved=0;mMoved=0;atkUsed=0;
+  ['titleScreen','deathScreen','winScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('blsScreen').classList.add('hidden');
+  document.getElementById('blessingBar').innerHTML='';
+  (document.getElementById('shieldRow')||{style:{}}).style.display='none';
+  document.getElementById('stageLbl').innerText='STAGE 1';
+  document.getElementById('tutPanel').style.display='block';
+  gs='tutorial';updateTutUI();
+}
+
+// ── Tutorial ──────────────────────────────────────────────
+function updateTutUI(){
+  const s=TUTS[tutStep];if(!s)return;
+  document.getElementById('tutTitle').innerText=`TUTORIAL ${tutStep+1}/4 · ${s.t}`;
+  document.getElementById('tutTxt').innerHTML=s.tx;
+  const dots=document.getElementById('tutDots');dots.innerHTML='';
+  TUTS.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='dot'+(i===tutStep?' on':i<tutStep?' done':'');
+    dots.appendChild(d);
+  });
+}
+function advanceTut(){
+  tutStep++;
+  if(tutStep>=TUTS.length){document.getElementById('tutPanel').style.display='none';gs='playing';spawnStage(1);return;}
+  if(tutStep===3)spawnStage(1);
+  updateTutUI();
+}
+
+// ── Spawning ──────────────────────────────────────────────
+function spawnStage(s){
+  spawnedAll=false;
+  document.getElementById('stageLbl').innerText=`STAGE ${s}`;
+  const def=STAGES[s-1];if(!def)return;
+
+  if(def.boss){
+    // Show Q1 overview first, boss spawns when it finishes
+    bossOverview=true;bossOverviewTimer=0;bossQuadrant=1;bossPhaseTimer=0;
+    setTimeout(()=>{
+      enemies.push(makeEnemy('boss',W/2,H/2));
+      spawnedAll=true;
+      // Teleport player to Q1 starting position
+      teleportPlayerToQuadrant(1);
+    }, (OVERVIEW_FRAMES/60*1000)+200);
+    return;
+  }
+  if(def.elite){
+    showEliteAnim('ROUNDED TRIANGLE','STAGE 5 ELITE');
+    setTimeout(()=>{
+      enemies.push(makeEnemy('elite_triangle',W/2,110));
+      enemies.push(makeEnemy('melee',160,160));
+      enemies.push(makeEnemy('melee',740,160));
+      spawnedAll=true;
+    },2200);
+    return;
+  }
+
+  let delay=0;
+  def.spawns.forEach(g=>{
+    for(let i=0;i<g.n;i++){
+      const p=rndEdge();
+      setTimeout(()=>enemies.push(makeEnemy(g.t,p.x,p.y)),delay);
+      delay+=200;
+    }
+  });
+  setTimeout(()=>spawnedAll=true,delay+300);
+}
+
+function rndEdge(){
+  const e=Math.floor(Math.random()*4);
+  if(e===0)return{x:80+Math.random()*(W-160),y:30+Math.random()*40};
+  if(e===1)return{x:80+Math.random()*(W-160),y:H-70+Math.random()*40};
+  if(e===2)return{x:30+Math.random()*40,y:80+Math.random()*(H-160)};
+  return{x:W-70+Math.random()*40,y:80+Math.random()*(H-160)};
+}
+
+function showEliteAnim(name,sub){
+  const n=document.getElementById('eliteName'),s=document.getElementById('eliteSub');
+  n.innerText=name;s.innerText=sub;
+  n.classList.add('show');s.classList.add('show');
+  setTimeout(()=>{n.classList.remove('show');s.classList.remove('show');},2000);
+}
+
+// ── Attack ─────────────────────────────────────────────────
+function addTPoint(x,y){
+  if(tAnim)return;
+  tPts.push({x,y});
+  if(tPts.length===3){fireTri();tPts=[];}
+}
+
+function isEquil(pts){
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const sides=[d(pts[0],pts[1]),d(pts[1],pts[2]),d(pts[2],pts[0])];
+  const avg=sides.reduce((a,b)=>a+b,0)/3;
+  return sides.every(s=>Math.abs(s-avg)/avg<0.2);
+}
+
+// Shoelace formula
+function triArea(pts){
+  const[a,b,c]=pts;
+  return Math.abs((b.x-a.x)*(c.y-a.y)-(c.x-a.x)*(b.y-a.y))/2;
+}
+
+// Base 15 energy + 1 per 500 area units, capped at 65
+// Small triangle (~50px sides) ≈ 15, large (~300px sides) ≈ 55
+function calcEnCost(pts){
+  return Math.min(65, 15 + triArea(pts)/500);
+}
+
+function fireTri(){
+  const raw=[...tPts];
+  const cost=calcEnCost(raw);
+
+  // Not enough energy: flash bar red and cancel
+  if(P.en<cost){
+    const bar=document.getElementById('enFill');
+    bar.style.background='#ff4060';
+    setTimeout(()=>{bar.style.background='';},400);
+    tPts=[];
+    return;
+  }
+
+  atkUsed++;
+  const crit=hasB('equilateral')&&isEquil(raw);
+  const mult=P.dmgMult*(crit?2:1);
+
+  hitTri(raw,mult,crit?'#fff':'#ffe040');
+
+  // Mirror copies (double_tri blessing)
+  if(hasB('double_tri')){
+    [0,1].forEach(()=>{
+      const cx=(raw[0].x+raw[1].x+raw[2].x)/3,cy=(raw[0].y+raw[1].y+raw[2].y)/3;
+      const ox=(Math.random()-.5)*320,oy=(Math.random()-.5)*240;
+      const mp=raw.map(p=>({x:p.x+ox,y:p.y+oy}));
+      setTimeout(()=>{hitTri(mp,mult*.75,'#ffe040');tAnim2.push({pts:mp,timer:50,max:50});},350+Math.random()*200);
+    });
+  }
+
+  // Triangle charge: the triangle itself flies toward the mouse
+  if(hasB('tri_charge')) doTriCharge(raw, mult);
+
+  tAnim={pts:raw,timer:50,max:50,crit};
+  P.en=Math.max(0, P.en-cost);
+}
+
+function hitTri(pts,mult,color){
+  enemies.forEach(e=>{
+    if(!ptInTri(e.x,e.y,pts[0],pts[1],pts[2]))return;
+    let dmg=Math.floor((22+Math.random()*12)*mult);
+    if(e.shielded){
+      e.shieldHp-=dmg;
+      if(e.shieldHp<=0)e.shielded=false;
+      dmg=Math.floor(dmg*.4);
+    }
+    e.hp-=dmg;e.flashTimer=12;
+    dmgNums.push({x:e.x,y:e.y-12,val:dmg,timer:40,vy:-1.2,color});
+    spawnParts(e.x,e.y,'#ffe040',6);
+    // Gain ult charge on each enemy hit
+    if(P.ult<P.maxUlt){P.ult=Math.min(P.maxUlt,P.ult+8);updateUltHUD();}
+  });
+  killDead();
+}
+
+// Elite triangle attack — only damages the player, not enemies
+function updateUltHUD(){
+  const row=document.getElementById('ultRow');
+  if(!row)return;
+  row.style.display='flex';
+  const fill=document.getElementById('ultFill');
+  if(fill) fill.style.width=(P.ult/P.maxUlt*100)+'%';
+  // Glow when full
+  if(fill) fill.style.boxShadow=P.ult>=P.maxUlt?'0 0 12px #e060ff,0 0 20px #c040ff':'0 0 6px #c060ff';
+}
+
+function fireUlt(){
+  // Three equilateral triangles fired in a fan toward mouse
+  const dir=Math.atan2(mouse.y-P.y,mouse.x-P.x);
+  const spread=0.28; // fan angle between each triangle
+  spawnParts(P.x,P.y,'#c040ff',40);
+  [-1,0,1].forEach((offset,i)=>{
+    const a=dir+offset*spread;
+    const size=55;
+    // Capture player position at cast time
+    const px=P.x,py=P.y;
+    setTimeout(()=>{
+      const pts=[0,1,2].map(j=>({
+        x:px+size*Math.cos(a+Math.PI/2+j*Math.PI*2/3),
+        y:py+size*Math.sin(a+Math.PI/2+j*Math.PI*2/3)
+      }));
+      triProjectiles.push({
+        pts,
+        vx:Math.cos(a)*8.5,
+        vy:Math.sin(a)*8.5,
+        life:1,decay:0.013,
+        mult:P.dmgMult*2,  // always crit
+        isCrit:true,
+        hitSet:new Set(),
+        trail:[]
+      });
+      spawnParts(px,py,'#c040ff',12);
+    }, i*100); // 0.1s stagger between each
+  });
+}
+
+function hitTriPlayer(pts,mult,color){
+  if(P.invincible>0)return;
+  if(!ptInTri(P.x,P.y,pts[0],pts[1],pts[2]))return;
+  const dmg=Math.floor((18+Math.random()*10)*mult);
+  takeDmg(dmg);
+  dmgNums.push({x:P.x,y:P.y-20,val:dmg,timer:44,vy:-1.5,color:'#ff8060'});
+  spawnParts(P.x,P.y,'#ff8060',14);
+}
+
+// The drawn triangle flies as a solid projectile toward the mouse direction.
+// It keeps its shape, hits enemies it overlaps, and leaves a fading ghost trail.
+function doTriCharge(rawPts, mult){
+  const cx=(rawPts[0].x+rawPts[1].x+rawPts[2].x)/3;
+  const cy=(rawPts[0].y+rawPts[1].y+rawPts[2].y)/3;
+  const dir=Math.atan2(mouse.y-cy, mouse.x-cx);
+  const spd=7;
+  triProjectiles.push({
+    pts: rawPts.map(p=>({x:p.x,y:p.y})),
+    vx: Math.cos(dir)*spd,
+    vy: Math.sin(dir)*spd,
+    life: 1,
+    decay: 0.016,    // ~62 frames of travel
+    mult,
+    hitSet: new Set(),
+    trail: []        // stores past centroid positions for ghost effect
+  });
+}
+
+function ptInTri(px,py,a,b,c){
+  const s=(p1,p2,p3)=>(p1.x-p3.x)*(p2.y-p3.y)-(p2.x-p3.x)*(p1.y-p3.y);
+  const d1=s({x:px,y:py},a,b),d2=s({x:px,y:py},b,c),d3=s({x:px,y:py},c,a);
+  return !((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0));
+}
+
+function killDead(){
+  enemies=enemies.filter(e=>{
+    if(e.hp>0)return true;
+    score+=e.reward||100;
+    spawnParts(e.x,e.y,e.color,18);
+    if(hasB('burn')||hasB('burn_slow')||hasB('burn_dmg'))
+      burnMarks.push({x:e.x,y:e.y,r:50,life:1,dmgTimer:0});
+    if(hasB('shield_kill')){P.shield=Math.min(P.maxShield,P.shield+5);}
+    return false;
+  });
+}
+
+function spawnParts(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=1+Math.random()*3.5;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+      color,size:1.5+Math.random()*3,life:1,decay:.022+Math.random()*.022});
+  }
+}
+
+// ── Dash-bomber explosion ─────────────────────────────────────
+const BOMB_RADIUS=110; // explosion display + hit radius
+function triggerBomberExplosion(e, hitPlayer){
+  // Remove enemy immediately so no corpse lingers
+  enemies=enemies.filter(en=>en!==e);
+  // Spawn explosion ring effect
+  explosions.push({x:e.x,y:e.y,r:0,maxR:BOMB_RADIUS,life:1,decay:1/40});
+  // Particles
+  spawnParts(e.x,e.y,'#ff6020',50);
+  spawnParts(e.x,e.y,'#ffcc40',25);
+  spawnParts(e.x,e.y,'#ffffff',12);
+  // Deal damage — direct hit or AoE
+  if(hitPlayer&&P.invincible<=0){
+    takeDmg(25);
+    spawnParts(P.x,P.y,'#ff6020',16);
+  } else if(!hitPlayer&&Math.hypot(P.x-e.x,P.y-e.y)<BOMB_RADIUS&&P.invincible<=0){
+    takeDmg(25);
+    spawnParts(P.x,P.y,'#ff6020',16);
+  }
+  score+=e.reward||100;
+}
+
+// ── Elite skills ───────────────────────────────────────────
+function doEliteSkill(e){
+  e.skillTimer=0;
+  const sk=e.skillIndex%3;e.skillIndex++;
+
+  if(sk===0){
+    // 3 triangles burst around player — tight warn window, damage on last frame
+    for(let k=0;k<3;k++){
+      const spread=75;
+      const baseAngle=Math.atan2(P.y-e.y, P.x-e.x); // point toward player
+      const angle=baseAngle+(Math.PI*2/3)*k + (Math.random()-.5)*0.4;
+      const dist=40+Math.random()*50;
+      const cx=Math.max(70,Math.min(W-70, P.x+Math.cos(angle)*dist));
+      const cy=Math.max(60,Math.min(H-60, P.y+Math.sin(angle)*dist));
+      const r=70+Math.random()*30;
+      const tri=[0,1,2].map(i=>({
+        x:cx+r*Math.cos(Math.PI/2+i*Math.PI*2/3),
+        y:cy+r*Math.sin(Math.PI/2+i*Math.PI*2/3)
+      }));
+      const WARN=36; // 0.6s warning — barely enough to dodge
+      setTimeout(()=>{
+        // Short flash animation
+        tAnim2.push({pts:tri,timer:WARN,max:WARN,warn:true});
+        // Damage fires exactly when animation ends (WARN frames × 16.7ms)
+        setTimeout(()=>{
+          hitTriPlayer(tri,1.3,'#ff8060');
+          // Leave a hazard zone: slows + ticks damage, radius matches triangle circumradius
+          triHazards.push({pts:tri,cx,cy,r:r*1.4,life:1,decay:1/720,dmgTimer:0});
+        }, Math.round(WARN*1000/60));
+      }, k*320);
+    }
+  } else if(sk===1){
+    // Shield circle + slow zone
+    eliteShieldCircle={x:e.x,y:e.y,r:110,timer:280};
+    slowZones.push({x:e.x,y:e.y,r:110,timer:280});
+    e.shieldHp=90;e.shielded=true;
+    spawnParts(e.x,e.y,'#60a0ff',35);
+    // Shield nearby minions
+    enemies.forEach(m=>{
+      if(m!==e&&Math.hypot(m.x-e.x,m.y-e.y)<130){
+        m.shielded=true;m.shieldHp=35;spawnParts(m.x,m.y,'#60a0ff',12);
+      }
+    });
+  } else {
+    // Summon 3 minions — one of them is a dash-bomber
+    for(let k=0;k<3;k++){
+      const a=Math.random()*Math.PI*2;
+      const minion=makeEnemy('melee',e.x+Math.cos(a)*65,e.y+Math.sin(a)*65);
+      if(k===0){
+        // First minion is a dash-bomber
+        minion.isDashBomber=true;
+        minion.dashTimer=0;
+        minion.dashInterval=240; // charges every 4s
+        minion.dashPhase='idle'; // idle | windup | dashing
+        minion.windupTimer=0;
+        minion.dashVx=0;minion.dashVy=0;
+        minion.color='#ff6020'; // distinct orange
+      }
+      enemies.push(minion);
+    }
+    spawnParts(e.x,e.y,'#ff8060',28);
+  }
+}
+
+// ── Teleport player to centre of given quadrant ──────────────
+function teleportPlayerToQuadrant(q){
+  // Q centres relative to canvas (W/2, H/2 is origin)
+  const offX=120, offY=100;
+  const qPositions={
+    1:{x:W/2+offX, y:H/2-offY},  // Q1: right-top
+    2:{x:W/2-offX, y:H/2-offY},  // Q2: left-top
+    3:{x:W/2-offX, y:H/2+offY},  // Q3: left-bottom
+    4:{x:W/2+offX, y:H/2+offY},  // Q4: right-bottom
+  };
+  const dest=qPositions[q]||{x:W/2,y:H/2};
+
+  // Flash effect at old position
+  spawnParts(P.x,P.y,'#ffe040',30);
+  // Move player
+  P.x=dest.x; P.y=dest.y;
+  P.invincible=80; // brief invincibility after teleport
+  // Flash at new position
+  spawnParts(P.x,P.y,'#00ffcc',30);
+}
+
+// ── Boss Quadrant Skills ──────────────────────────────────────
+function doBossSkill(boss,q){
+  const cx=boss.x,cy=boss.y;
+
+  if(q===1){
+    // Q1 — Radial bullet storm (base attack, 12 bullets)
+    const count=12;
+    for(let i=0;i<count;i++){
+      const a=(Math.PI*2/count)*i+boss.spinAngle;
+      eBullets.push({x:cx,y:cy,vx:Math.cos(a)*3.5,vy:Math.sin(a)*3.5,dmg:16,life:1,size:7,color:'#ff4040'});
+    }
+    // Plus aimed burst at player
+    const pa=Math.atan2(P.y-cy,P.x-cx);
+    for(let i=-1;i<=1;i++){
+      const a=pa+i*0.25;
+      eBullets.push({x:cx,y:cy,vx:Math.cos(a)*4.5,vy:Math.sin(a)*4.5,dmg:20,life:1,size:8,color:'#ff2020'});
+    }
+    spawnParts(cx,cy,'#ff4040',18);
+  }
+
+  else if(q===2){
+    // Q2 — Mirror slice: shoot a warning line, then it fires and mirrors any player triangle
+    // Alternate between X-axis and Y-axis slices
+    const useX=Math.random()<0.5;
+    const slicePos=useX
+      ? cy+(Math.random()-.5)*200   // horizontal slice at some Y
+      : cx+(Math.random()-.5)*200;  // vertical slice at some X
+    bossSliceWarnings.push({
+      axis:useX?'x':'y',
+      pos:slicePos,
+      timer:100,      // 1.7s warning
+      active:false,
+      showTimer:40
+    });
+    // Also shoot spiral bullets
+    for(let i=0;i<6;i++){
+      const a=(Math.PI*2/6)*i+fc*0.02;
+      eBullets.push({x:cx,y:cy,vx:Math.cos(a)*2.8,vy:Math.sin(a)*2.8,dmg:14,life:1,size:6,color:'#ff60a0'});
+    }
+    spawnParts(cx,cy,'#ff60a0',14);
+  }
+
+  else if(q===3){
+    // Q3 — Axis lasers: fire beams along X and Y axes
+    // X-axis beam (horizontal)
+    bossLasers.push({axis:'x',pos:cy+((Math.random()-.5)*160),life:1,decay:.007,active:true,color:'#ff8020'});
+    // Y-axis beam (vertical)
+    bossLasers.push({axis:'y',pos:cx+((Math.random()-.5)*160),life:1,decay:.007,active:true,color:'#ff8020'});
+    // Dense bullet ring
+    for(let i=0;i<16;i++){
+      const a=(Math.PI*2/16)*i;
+      eBullets.push({x:cx,y:cy,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,dmg:12,life:1,size:5,color:'#ff8020'});
+    }
+    spawnParts(cx,cy,'#ff8020',25);
+  }
+
+  else if(q===4){
+    // Q4 — Cage: fire 4 converging walls of bullets (horizontal + vertical pairs)
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    dirs.forEach(([vx,vy])=>{
+      for(let i=-4;i<=4;i++){
+        const ox=vy*i*30,oy=vx*i*30;
+        eBullets.push({x:cx+ox,y:cy+oy,vx:vx*3,vy:vy*3,dmg:18,life:1,size:7,color:'#c040ff'});
+      }
+    });
+    // Rapid homing burst at player
+    for(let i=0;i<4;i++){
+      setTimeout(()=>{
+        const a=Math.atan2(P.y-boss.y,P.x-boss.x)+(Math.random()-.5)*0.4;
+        eBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*5.5,vy:Math.sin(a)*5.5,dmg:22,life:1,size:9,color:'#e060ff'});
+      },i*120);
+    }
+    spawnParts(cx,cy,'#c040ff',30);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SPELL SYSTEM — Template tracing mode
+// ═══════════════════════════════════════════════════════════
+
+// ── Template point paths (normalized 0-1, scaled on draw) ──
+// Each template is a list of {x,y} points defining the shape
+// Templates stored as arrays of strokes (each stroke = array of {x,y})
+// Coordinates are normalized 0-1, scaled to canvas on draw
+const SPELL_TEMPLATES={
+  rewind: [
+    // First chevron > pointing left
+    [{x:0.65,y:0.22},{x:0.45,y:0.5},{x:0.65,y:0.78}],
+    // Second chevron > pointing left (offset left)
+    [{x:0.42,y:0.22},{x:0.22,y:0.5},{x:0.42,y:0.78}],
+  ],
+  mobius: [
+    // ∞ as one continuous stroke (lemniscate)
+    (()=>{const s=[];for(let t=0;t<=Math.PI*2+0.1;t+=Math.PI/20){
+      const sc=Math.sqrt(2)*Math.cos(t)/(Math.sin(t)*Math.sin(t)+1);
+      s.push({x:0.5+sc*0.32, y:0.5+sc*Math.sin(t)*0.26});
+    }return s;})(),
+  ],
+};
+
+// Returns array of strokes, each stroke = array of pixel {x,y}
+function getTemplatePx(name){
+  const tpl=SPELL_TEMPLATES[name];
+  if(!tpl) return [];
+  const CX=450,CY=300,SX=480,SY=280;
+  return tpl.map(stroke=>stroke.map(p=>({
+    x:CX+(p.x-0.5)*SX,
+    y:CY+(p.y-0.5)*SY
+  })));
+}
+
+// Draw ghost template on spell canvas
+function drawTemplate(name){
+  if(!spellCtx||!name||!SPELL_TEMPLATES[name]) return;
+  const strokes=getTemplatePx(name); // array of stroke arrays
+  spellCtx.save();
+  spellCtx.globalAlpha=0.28;
+  spellCtx.strokeStyle='#c0a0ff';
+  spellCtx.lineWidth=16;
+  spellCtx.lineCap='round';spellCtx.lineJoin='round';
+  spellCtx.shadowColor='#c0a0ff';spellCtx.shadowBlur=10;
+  // Draw each stroke separately
+  strokes.forEach(stroke=>{
+    if(stroke.length<2) return;
+    spellCtx.beginPath();
+    spellCtx.moveTo(stroke[0].x,stroke[0].y);
+    stroke.forEach(p=>spellCtx.lineTo(p.x,p.y));
+    spellCtx.stroke();
+  });
+  // Label
+  spellCtx.globalAlpha=0.40;spellCtx.shadowBlur=0;
+  spellCtx.font='bold 13px Orbitron';spellCtx.fillStyle='#c0a0ff';
+  spellCtx.textAlign='center';
+  const label={rewind:'⏪  TIME REWIND',mobius:'∞  INVINCIBLE'}[name]||name.toUpperCase();
+  spellCtx.fillText(label,450,555);
+  spellCtx.textAlign='left';
+  spellCtx.restore();
+}
+
+// ── Coverage score: what % of template points are covered by player strokes ──
+function coverageScore(name){
+  const strokes=getTemplatePx(name); // array of stroke arrays
+  const tplPts=strokes.flat();
+  if(!tplPts.length) return 0;
+  const allPts=getAllStrokePoints();
+  if(!allPts.length) return 0;
+  const HIT_RADIUS=32; // pixels — how close counts as "covered"
+  let hits=0;
+  for(const tp of tplPts){
+    for(const sp of allPts){
+      if(Math.hypot(tp.x-sp.x,tp.y-sp.y)<HIT_RADIUS){hits++;break;}
+    }
+  }
+  return hits/tplPts.length;
+}
+
+// ── DY easter egg: kept as feature-matching (no template shown) ──
+function matchDY(allPts){
+  if(allPts.length<10) return false;
+  if(spellStrokes.length<2) return false;
+  const n=normalize(resample(allPts,40));
+  const w=Math.max(...n.map(p=>p.x))-Math.min(...n.map(p=>p.x));
+  const h=Math.max(...n.map(p=>p.y))-Math.min(...n.map(p=>p.y));
+  const aspect=w/(h||0.01);
+  // Count direction reversals
+  let yRevs=0,lastDy2=0;
+  for(let i=1;i<n.length;i++){
+    const dy=n[i].y-n[i-1].y;
+    if(lastDy2>0.04&&dy<-0.04) yRevs++;
+    else if(lastDy2<-0.04&&dy>0.04) yRevs++;
+    if(Math.abs(dy)>0.04) lastDy2=dy;
+  }
+  return spellStrokes.length===2 && aspect>0.5 && aspect<3.5 && yRevs>=2 && yRevs<=8;
+}
+
+// Resample helper
+function resample(pts,n){
+  if(pts.length<2) return pts;
+  const out=[pts[0]];
+  let acc=0;
+  const total=pts.reduce((s,p,i)=>i?s+Math.hypot(p.x-pts[i-1].x,p.y-pts[i-1].y):s,0);
+  if(total===0) return pts;
+  const step=total/(n-1);
+  for(let i=1;i<pts.length;i++){
+    const d=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+    if(acc+d>=step){
+      const t=(step-acc)/d;
+      out.push({x:pts[i-1].x+(pts[i].x-pts[i-1].x)*t,y:pts[i-1].y+(pts[i].y-pts[i-1].y)*t});
+      acc=0;if(out.length===n)break;
+    } else acc+=d;
+  }
+  while(out.length<n) out.push(pts[pts.length-1]);
+  return out;
+}
+function normalize(pts){
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
+  const sx=mxx-mnx||1,sy=mxy-mny||1;
+  return pts.map(p=>({x:(p.x-mnx)/sx,y:(p.y-mny)/sy}));
+}
+function segIntersect(a,b,c,d){
+  const det=(b.x-a.x)*(d.y-c.y)-(b.y-a.y)*(d.x-c.x);
+  if(!det) return false;
+  const t=((c.x-a.x)*(d.y-c.y)-(c.y-a.y)*(d.x-c.x))/det;
+  const u=((c.x-a.x)*(b.y-a.y)-(c.y-a.y)*(b.x-a.x))/det;
+  return t>0.05&&t<0.95&&u>0.05&&u<0.95;
+}
+
+// ── Spell canvas init ────────────────────────────────────
+function initSpellCanvas(){
+  const sc=document.getElementById('spellCanvas');
+  spellCtx=sc.getContext('2d');
+}
+
+function startECharge(){
+  if(!['tutorial','playing'].includes(gs))return;
+  if(spellState==='off'||spellState==='cooldown') spellState='charging';
+}
+function cancelECharge(){
+  if(spellState==='charging'){spellState=spellCooldown>0?'cooldown':'off';spellCharge=0;updateChargeRing(0);}
+}
+function updateChargeRing(frac){
+  const ring=document.getElementById('eChargeRing');
+  const arc=document.getElementById('eChargeArc');
+  if(!ring||!arc)return;
+  if(frac<=0){ring.style.display='none';return;}
+  ring.style.display='block';
+  ring.style.left=(P.x-30)+'px';ring.style.top=(P.y-30)+'px';
+  const circ=150.8;
+  arc.setAttribute('stroke-dashoffset',circ*(1-frac));
+}
+
+function enterCastMode(){
+  spellState='casting';spellCharge=0;spellTimer=0;spellStroke=[];spellStrokes=[];spellResult=null;
+  timeScale=SPELL_TIMESCALE;
+  updateChargeRing(0);
+  const ov=document.getElementById('spellOverlay');
+  ov.style.opacity='1';ov.style.background='rgba(8,4,24,0.7)';
+  const sc=document.getElementById('spellCanvas');
+  sc.style.display='block';
+  if(!spellCtx) initSpellCanvas();
+  spellCtx.clearRect(0,0,900,600);
+  // Draw ghost template for active spell
+  if(activeSpell) drawTemplate(activeSpell);
+  const hud=document.getElementById('spellHUD');
+  hud.style.display='block';hud.style.color='rgba(180,140,255,.75)';
+  hud.innerText='HOLD E  ·  TRACE THE PATTERN  ·  RMB TO CLEAR';
+}
+
+function exitCastMode(success,silent=false){
+  spellDrawing=false;
+  timeScale=1.0;
+  document.getElementById('spellOverlay').style.opacity='0';
+  const sc=document.getElementById('spellCanvas');
+  sc.style.display='none';
+  document.getElementById('spellHUD').style.display='none';
+  if(spellCtx) spellCtx.clearRect(0,0,900,600);
+  spellStroke=[];spellStrokes=[];
+  if(success){
+    spellCooldown=SPELL_CD_LONG_MS;spellState='cooldown';
+  } else if(silent){
+    spellState=spellCooldown>0?'cooldown':'off';
+  } else {
+    spellCooldown=SPELL_CD_SHORT_MS;spellState='cooldown';
+  }
+}
+
+function getAllStrokePoints(){
+  return [...spellStrokes.flat(),...spellStroke];
+}
+
+// Redraw: template ghost + all player strokes + live coverage meter
+function redrawSpellCanvas(){
+  if(!spellCtx) return;
+  spellCtx.clearRect(0,0,900,600);
+  // Ghost template
+  if(activeSpell) drawTemplate(activeSpell);
+  // Coverage bar
+  const cov=activeSpell?coverageScore(activeSpell):0;
+  drawCoverageBar(cov);
+  // Player strokes
+  const col=cov>=0.9?'#ffe040':cov>=0.6?'#c080ff':'rgba(140,100,255,0.85)';
+  spellCtx.save();
+  spellCtx.lineWidth=3;spellCtx.lineCap='round';spellCtx.lineJoin='round';
+  spellCtx.shadowBlur=14;
+  const drawStroke=pts=>{
+    if(pts.length<2) return;
+    spellCtx.strokeStyle=col;spellCtx.shadowColor=col;
+    spellCtx.beginPath();spellCtx.moveTo(pts[0].x,pts[0].y);
+    pts.forEach(p=>spellCtx.lineTo(p.x,p.y));
+    spellCtx.stroke();
+  };
+  spellStrokes.forEach(drawStroke);
+  drawStroke(spellStroke);
+  spellCtx.restore();
+}
+
+function drawCoverageBar(cov){
+  if(!spellCtx) return;
+  const bx=280,by=32,bw=340,bh=8;
+  spellCtx.save();
+  // Background
+  spellCtx.globalAlpha=0.3;
+  spellCtx.fillStyle='#fff';spellCtx.fillRect(bx,by,bw,bh);
+  // Fill
+  spellCtx.globalAlpha=0.85;
+  const fillColor=cov>=0.9?'#ffe040':cov>=0.6?'#c080ff':'#7040c0';
+  spellCtx.fillStyle=fillColor;spellCtx.fillRect(bx,by,bw*cov,bh);
+  // 90% marker
+  spellCtx.globalAlpha=0.7;spellCtx.fillStyle='#fff';
+  spellCtx.fillRect(bx+bw*0.9-1,by-2,2,bh+4);
+  // Label
+  spellCtx.globalAlpha=0.6;spellCtx.fillStyle='#c0a0ff';
+  spellCtx.font='9px Orbitron';spellCtx.textAlign='center';
+  spellCtx.fillText(Math.round(cov*100)+'%  /  90%',bx+bw/2,by-4);
+  spellCtx.textAlign='left';
+  spellCtx.restore();
+}
+
+function tryRecogniseSpell(){
+  const allPts=getAllStrokePoints();
+  if(allPts.length<8) return;
+  // Template-based check for equipped spell
+  if(activeSpell&&SPELL_TEMPLATES[activeSpell]){
+    const cov=coverageScore(activeSpell);
+    if(cov>=0.9){
+      activateSpell(activeSpell);
+      exitCastMode(true);
+      return;
+    }
+    showSpellFlash(`${Math.round(cov*100)}%  — NEED 90%  ·  RMB TO CLEAR`,'#ff8060');
+    return;
+  }
+  // DY easter egg (no template, feature-based)
+  if(matchDY(allPts)){
+    activateSpell('dy');exitCastMode(true);return;
+  }
+  showSpellFlash('✗  NOT RECOGNIZED  ·  RMB TO CLEAR','#ff8060');
+}
+function finishSpellDraw(){ tryRecogniseSpell(); }
+function drawSpellStroke(){ redrawSpellCanvas(); }
+function drawAllStrokes(){ redrawSpellCanvas(); }
+
+// ── Activate spell effect ────────────────────────────────
+function activateSpell(name){
+  if(name==='rewind'){
+    showSpellFlash('⏪  TIME REWIND  ⏪','#60e0ff');
+    rewindGameState();
+  } else if(name==='mobius'){
+    showSpellFlash('∞  INVINCIBLE + ULT CHARGED  ∞','#c0ff60');
+    P.invincible=300;P.ult=P.maxUlt;updateUltHUD();
+    spawnParts(P.x,P.y,'#80ff80',50);
+  } else if(name==='dy'){
+    showSpellFlash('✦  D·Y  ·  REVIVE TOKEN GAINED  ✦','#ffe040');
+    reviveTokens++;updateReviveHUD();
+    spawnParts(P.x,P.y,'#ffe040',60);
+  }
+}
+
+function showSpellFlash(msg,color){ spellFlash={msg,color,timer:150}; }
+
+function updateReviveHUD(){
+  let el=document.getElementById('reviveTokens');
+  if(!el){
+    el=document.createElement('div');el.id='reviveTokens';
+    el.style.cssText='position:absolute;bottom:44px;right:16px;font-family:Orbitron,monospace;font-size:9px;color:#ffe040;letter-spacing:1px;pointer-events:none;';
+    document.getElementById('gw').appendChild(el);
+  }
+  el.innerText=reviveTokens>0?'◆ REVIVE ×'+reviveTokens:'';
+}
+
+// ── Game state history for rewind ───────────────────────
+const STATE_HISTORY=[];
+const HISTORY_INTERVAL=6;
+function saveGameState(){
+  if(fc%HISTORY_INTERVAL!==0) return;
+  const now=performance.now();
+  STATE_HISTORY.push({fc,ts:now,
+    enemies:enemies.map(e=>({...e})),
+    eBullets:eBullets.map(b=>({...b})),
+    burnMarks:burnMarks.map(b=>({...b})),
+    px:P.x,py:P.y,php:P.hp,pmaxHp:P.maxHp,pen:P.en,psh:P.shield,pult:P.ult});
+  if(STATE_HISTORY.length>200) STATE_HISTORY.shift(); // 保存~20s历史
+}
+function rewindGameState(){
+  const targetTs=performance.now()-20000; // 真实20秒前
+  const snap=STATE_HISTORY.filter(s=>s.ts&&s.ts<=targetTs).pop()
+           ||STATE_HISTORY[0]; // 找最近的不超过20秒前的快照
+  if(!snap) return;
+  // 完整恢复所有游戏状态
+  enemies=snap.enemies.map(e=>({...e}));
+  eBullets=snap.eBullets.map(b=>({...b}));
+  burnMarks=snap.burnMarks?snap.burnMarks.map(b=>({...b})):[];
+  P.x=snap.px;P.y=snap.py;
+  P.hp=snap.php;P.maxHp=snap.pmaxHp;
+  P.en=snap.pen;P.shield=snap.psh;
+  if(snap.pult!==undefined){P.ult=snap.pult;updateUltHUD();}
+  P.invincible=80; // 短暂无敌缓冲，防止回溯后立刻死
+  STATE_HISTORY.length=0;
+  // 蓝色粒子爆发 + 时间回溯视觉
+  for(let i=0;i<80;i++) spawnParts(P.x,P.y,'#60e0ff',1);
+  spawnParts(W/2,H/2,'#60e0ff',60);
+}
+
+// ── Spell cooldown HUD ───────────────────────────────────
+function updateSpellCD(){
+  const el=document.getElementById('spellCD');
+  if(!el) return;
+  if(!activeSpell){el.innerText='';return;}
+  if(spellState==='cooldown'){
+    const s=Math.ceil(spellCooldown/1000);
+    el.innerText=`SPELL  ${s}s`;el.style.color='rgba(255,100,100,.6)';
+  } else if(spellState==='charging'){
+    el.innerText='HOLD E...';el.style.color='rgba(180,140,255,.8)';
+  } else if(spellState==='casting'){
+    const rem=Math.ceil((SPELL_MAX_MS-spellTimer)/1000);
+    el.innerText=`CASTING  ${rem}s`;el.style.color='rgba(180,140,255,.9)';
+  } else {
+    el.innerText='[E]  SPELL READY';el.style.color='rgba(180,140,255,.55)';
+  }
+}
+
+// ── Update spell system ──────────────────────────────────
+function updateSpell(){
+  if(!['tutorial','playing'].includes(gs)) return;
+  saveGameState();
+  const dt=(window._realDt||1)*16.667; // real ms this frame
+  if(spellState==='charging'){
+    if(!keys['e']){spellState='off';spellCharge=0;updateChargeRing(0);return;}
+    spellCharge+=dt;
+    updateChargeRing(spellCharge/SPELL_CHARGE_MS);
+    if(spellCharge>=SPELL_CHARGE_MS) enterCastMode();
+  }
+  if(spellState==='casting'){
+    spellTimer+=dt; // real ms
+    if(spellTimer>=SPELL_MAX_MS){
+      exitCastMode(false,false);
+      showSpellFlash('SPELL TIMEOUT  ·  5s COOLDOWN','#ff8040');
+      return;
+    }
+    if(!keys['e']){exitCastMode(false,true);return;}
+  }
+  if(spellState==='cooldown'){
+    spellCooldown-=dt; // real ms
+    if(spellCooldown<=0){spellState='off';spellCooldown=0;}
+  }
+  if(spellFlash){spellFlash.timer--;if(spellFlash.timer<=0)spellFlash=null;}
+  updateSpellCD();
+}
+
+// ── Draw spell flash ─────────────────────────────────────
+function drawSpellFlash(){
+  if(!spellFlash) return;
+  const t=spellFlash.timer/150;
+  ctx.save();
+  ctx.globalAlpha=Math.min(1,t*3)*0.9;
+  ctx.font='bold 20px Orbitron';
+  ctx.fillStyle=spellFlash.color;ctx.shadowColor=spellFlash.color;ctx.shadowBlur=24;
+  ctx.textAlign='center';ctx.fillText(spellFlash.msg,W/2,H/2-80);
+  ctx.textAlign='left';ctx.restore();
+}
+
+// ── Learn/equip spell ────────────────────────────────────
+function learnSpell(name){
+  spellKnown.add(name);
+  activeSpell=name; // auto-equip first learned, replace with new
+  updateSpellCD();
+  showSpellFlash('SPELL EQUIPPED: '+name.toUpperCase(),'#c080ff');
+}
+
+// ── Update ─────────────────────────────────────────────────
+function update(){
+  fc++;
+  updateSpell();
+  if(!['tutorial','playing'].includes(gs))return;
+
+  // Player movement — quadrant flips axes during boss fight
+  let dx=0,dy=0;
+  const flipX=(stage===10&&(bossQuadrant===2||bossQuadrant===3));
+  const flipY=(stage===10&&(bossQuadrant===3||bossQuadrant===4));
+  const rawUp   =keys['w']||keys['arrowup'];
+  const rawDown =keys['s']||keys['arrowdown'];
+  const rawLeft =keys['a']||keys['arrowleft'];
+  const rawRight=keys['d']||keys['arrowright'];
+  if(flipY?rawDown:rawUp)   dy-=1;
+  if(flipY?rawUp:rawDown)   dy+=1;
+  if(flipX?rawRight:rawLeft) dx-=1;
+  if(flipX?rawLeft:rawRight) dx+=1;
+  const inSlowZone=slowZones.some(z=>Math.hypot(P.x-z.x,P.y-z.y)<z.r);
+  const inHazard=triHazards.some(h=>h.playerInside);
+  const spd=inHazard?P.speed*.35:inSlowZone?P.speed*.4:P.speed;
+  if(dx||dy){
+    const l=Math.hypot(dx,dy);
+    P.x+=dx/l*spd;P.y+=dy/l*spd;pMoved++;
+    P.trail.push({x:P.x,y:P.y,life:1});
+  }
+  P.x=Math.max(20,Math.min(W-20,P.x));
+  P.y=Math.max(20,Math.min(H-20,P.y));
+  P.trail=P.trail.filter(t=>{t.life-=.055*timeScale;return t.life>0;});
+  P.angle=Math.atan2(mouse.y-P.y,mouse.x-P.x);
+  if(P.en<P.maxEn)P.en+=P.enRegen;
+  if(P.invincible>0)P.invincible-=timeScale;
+
+  // Enemies
+  enemies.forEach(e=>{
+    if(e.hp<=0)return; // skip dead enemies — killDead() will remove them
+    e.spinAngle+=.018*timeScale;
+    if(e.shielded&&e.shieldHp<=0)e.shielded=false;
+
+    // Elite skill timing
+    if(e.type==='elite_triangle'){
+      e.skillTimer+=timeScale;
+      if(e.skillTimer>=e.skillInterval)doEliteSkill(e);
+      // Track shield circle to elite pos
+      if(eliteShieldCircle){eliteShieldCircle.x=e.x;eliteShieldCircle.y=e.y;}
+    }
+
+    // Boss: quadrant-based skills
+    if(e.type==='boss'){
+      // Overview animation ticks independently
+      if(bossOverview){
+        bossOverviewTimer++;
+        if(bossOverviewTimer>=OVERVIEW_FRAMES){
+          bossOverview=false;
+          // Teleport player to centre of new quadrant after overview ends
+          teleportPlayerToQuadrant(bossQuadrant);
+        }
+        return; // pause all other boss logic during overview
+      }
+
+      // Boss phase timer — triggers countdown then switches
+      bossPhaseTimer+=timeScale;
+
+      // Start countdown 3s before switch
+      if(bossPhaseTimer>=BOSS_PHASE_INTERVAL-BOSS_COUNTDOWN_START && bossCountdown===0){
+        bossCountdown=BOSS_COUNTDOWN_START;
+      }
+      if(bossCountdown>0) bossCountdown-=timeScale;
+
+      // Switch when timer reaches interval
+      if(bossPhaseTimer>=BOSS_PHASE_INTERVAL){
+        bossPhaseTimer=0;
+        bossCountdown=0;
+        // Pick a random DIFFERENT quadrant
+        let nextQ;
+        do{ nextQ=Math.ceil(Math.random()*4); }while(nextQ===bossQuadrant);
+        bossQuadrant=nextQ;
+        bossOverview=true;
+        bossOverviewTimer=0;
+        bossLasers=[];bossSliceWarnings=[];
+        spawnParts(W/2,H/2,'#ff4040',60);
+        return;
+      }
+
+      // Fire skills (pause during countdown's last 0.5s for tension)
+      if(bossCountdown<30){
+        e.skillTimer+=timeScale;
+        if(e.skillTimer>=e.skillInterval){
+          e.skillTimer=0;
+          doBossSkill(e,bossQuadrant);
+        }
+      }
+    }
+
+    // Boss stays centered; others chase player
+    if(e.type!=='boss'){
+      const ang=Math.atan2(P.y-e.y,P.x-e.x);
+      const dist=Math.hypot(P.x-e.x,P.y-e.y);
+      // Dash-bomber in idle keeps a gap — stops ~90px from player
+      if(e.isDashBomber&&e.dashPhase==='idle'&&dist<90){
+        // Orbit: move perpendicular instead of straight in
+        const perpAng=ang+Math.PI/2;
+        e.x+=Math.cos(perpAng)*e.speed*0.6;
+        e.y+=Math.sin(perpAng)*e.speed*0.6;
+      } else if(!(e.isDashBomber&&e.dashPhase==='dashing')){
+        e.x+=Math.cos(ang)*e.speed*timeScale;e.y+=Math.sin(ang)*e.speed*timeScale;
+      }
+    }
+    if(e.flashTimer>0)e.flashTimer--;
+
+    // Dash-bomber AI
+    if(e.isDashBomber&&e.hp>0){
+      e.dashTimer+=timeScale;
+      if(e.dashPhase==='idle'&&e.dashTimer>=e.dashInterval){
+        // Begin windup — face player, flicker
+        e.dashPhase='windup';
+        e.windupTimer=50; // 0.8s windup
+        const ang=Math.atan2(P.y-e.y,P.x-e.x);
+        e.dashVx=Math.cos(ang)*12;e.dashVy=Math.sin(ang)*12;
+      }
+      if(e.dashPhase==='windup'){
+        e.windupTimer-=timeScale;
+        e.flashTimer=8; // constant flicker during windup
+        if(e.windupTimer<=0){
+          e.dashPhase='dashing';
+          e.dashTimer=0;
+        }
+      }
+      if(e.dashPhase==='dashing'){
+        e.x+=e.dashVx;e.y+=e.dashVy;
+        // Hit player
+        if(Math.hypot(P.x-e.x,P.y-e.y)<P.size+e.size+10){
+          triggerBomberExplosion(e, true);
+          return;
+        }
+        // Timeout or out-of-bounds
+        if(e.dashTimer>15||e.x<0||e.x>W||e.y<0||e.y>H){
+          triggerBomberExplosion(e, false);
+          return;
+        }
+        e.dashTimer+=timeScale;
+      }
+    }
+
+    // Ranged shooting
+    if(e.type==='ranged'){
+      e.shootTimer+=timeScale;
+      if(e.shootTimer>=(e.shootCd||180)){
+        e.shootTimer=0;
+        const ba=Math.atan2(P.y-e.y,P.x-e.x);
+        eBullets.push({x:e.x,y:e.y,vx:Math.cos(ba)*2.2,vy:Math.sin(ba)*2.2,dmg:12,life:1,size:6,color:e.color});
+      }
+    }
+
+    // Contact damage + knockback (prevents sticking)
+    if(e.hp<=0)return; // don't process dead enemies
+    const contactDist=Math.hypot(P.x-e.x,P.y-e.y);
+    if(contactDist<P.size+e.size){
+      // Push player away from enemy regardless of invincibility
+      const pushAng=Math.atan2(P.y-e.y,P.x-e.x);
+      const overlap=P.size+e.size-contactDist;
+      P.x+=Math.cos(pushAng)*(overlap+8);
+      P.y+=Math.sin(pushAng)*(overlap+8);
+      P.x=Math.max(20,Math.min(W-20,P.x));
+      P.y=Math.max(20,Math.min(H-20,P.y));
+      // Damage only during non-invincible frames
+      if(P.invincible<=0){
+        takeDmg(e.type==='boss'?20:12);
+      }
+    }
+  });
+
+  // Enemy bullets
+  eBullets.forEach(b=>{
+    b.x+=b.vx*timeScale;b.y+=b.vy*timeScale;b.life-=.007*timeScale;
+    if(Math.hypot(P.x-b.x,P.y-b.y)<P.size+b.size&&P.invincible<=0){takeDmg(b.dmg);b.life=0;}
+    if(b.x<-20||b.x>W+20||b.y<-20||b.y>H+20)b.life=0;
+  });
+  eBullets=eBullets.filter(b=>b.life>0);
+
+  // Boss lasers: persistent beams that damage player on contact
+  bossLasers.forEach(l=>{
+    l.life-=(l.decay||0.006)*timeScale;
+    if(l.active&&P.invincible<=0){
+      // Check if player is on the laser line
+      if(l.axis==='x'&&Math.abs(P.y-l.pos)<18) takeDmg(1);
+      if(l.axis==='y'&&Math.abs(P.x-l.pos)<18) takeDmg(1);
+    }
+  });
+  bossLasers=bossLasers.filter(l=>l.life>0);
+
+  // Boss slice warnings (become active after warn period)
+  bossSliceWarnings.forEach(s=>{
+    s.timer--;
+    if(s.timer===0){
+      s.active=true;
+      // Deal damage to player if caught
+      if(s.axis==='x'&&Math.abs(P.y-s.pos)<22) takeDmg(25);
+      if(s.axis==='y'&&Math.abs(P.x-s.pos)<22) takeDmg(25);
+      // Mirror any active triangle anims across the slice axis
+      if(tAnim){
+        const mp=tAnim.pts.map(p=>({
+          x:s.axis==='y'?(2*s.pos-p.x):p.x,
+          y:s.axis==='x'?(2*s.pos-p.y):p.y
+        }));
+        tAnim2.push({pts:mp,timer:40,max:40,warn:false});
+        hitTri(mp, P.dmgMult*0.6, false);
+      }
+    }
+  });
+  bossSliceWarnings=bossSliceWarnings.filter(s=>{if(!s.active)return s.timer>0;s._st=(s._st||40)-1;return s._st>0;});
+
+  // Burn marks
+  burnMarks.forEach(b=>{
+    b.life-=.0022*timeScale;b.dmgTimer+=timeScale;
+    if(b.dmgTimer%45===0){
+      enemies.forEach(e=>{
+        if(Math.hypot(e.x-b.x,e.y-b.y)<b.r){
+          const bd=Math.floor(6*(hasB('burn_dmg')?1.5:1)*P.dmgMult);
+          e.hp-=bd;e.flashTimer=8;
+          dmgNums.push({x:e.x,y:e.y-10,val:bd,timer:30,vy:-1,color:'#c060ff'});
+        }
+      });
+      killDead();
+    }
+  });
+  burnMarks=burnMarks.filter(b=>b.life>0);
+
+  // Triangle hazard zones — ptInTri collision = exactly matches visual triangle
+  triHazards.forEach(h=>{
+    h.life-=h.decay*timeScale;
+    h.dmgTimer+=timeScale;
+    const inZone=ptInTri(P.x,P.y,h.pts[0],h.pts[1],h.pts[2]);
+    if(inZone){
+      h.playerInside=true;
+      if(h.dmgTimer>=45&&P.invincible<=0){
+        h.dmgTimer=0;
+        takeDmg(2);
+        dmgNums.push({x:P.x,y:P.y-16,val:2,timer:30,vy:-1,color:'#ff8060'});
+      }
+    } else {
+      h.playerInside=false;
+    }
+  });
+  triHazards=triHazards.filter(h=>h.life>0);
+
+  // Explosion rings
+  explosions.forEach(ex=>{
+    ex.r=ex.maxR*(1-ex.life);
+    ex.life-=ex.decay*timeScale;
+  });
+  explosions=explosions.filter(ex=>ex.life>0);
+
+  // Slow zones
+  slowZones.forEach(z=>z.timer-=timeScale);
+  slowZones=slowZones.filter(z=>z.timer>0);
+  if(eliteShieldCircle){eliteShieldCircle.timer-=timeScale;if(eliteShieldCircle.timer<=0)eliteShieldCircle=null;}
+
+  // Particles
+  particles.forEach(p=>{p.x+=p.vx*timeScale;p.y+=p.vy*timeScale;p.vx*=(.94**timeScale);p.vy*=(.94**timeScale);p.life-=p.decay*timeScale;});
+  particles=particles.filter(p=>p.life>0);
+
+  // Anims
+  if(tAnim){tAnim.timer--;if(tAnim.timer<=0)tAnim=null;}
+  tAnim2=tAnim2.filter(a=>{a.timer--;return a.timer>0;});
+
+  // Update flying triangle projectiles (tri_charge blessing)
+  triProjectiles.forEach(tp=>{
+    // Record trail point (centroid)
+    const cx=(tp.pts[0].x+tp.pts[1].x+tp.pts[2].x)/3;
+    const cy=(tp.pts[0].y+tp.pts[1].y+tp.pts[2].y)/3;
+    tp.trail.push({x:cx,y:cy,life:1});
+    if(tp.trail.length>10) tp.trail.shift();
+    tp.trail.forEach(t=>t.life-=0.09*timeScale);
+
+    // Move all vertices
+    tp.pts.forEach(p=>{p.x+=tp.vx*timeScale;p.y+=tp.vy*timeScale;});
+    tp.life-=tp.decay*timeScale;
+
+    // Hit enemies not yet hit by this projectile
+    enemies.forEach(e=>{
+      if(tp.hitSet.has(e)) return;
+      if(ptInTri(e.x,e.y,tp.pts[0],tp.pts[1],tp.pts[2])){
+        tp.hitSet.add(e);
+        let dmg=Math.floor((28+Math.random()*14)*tp.mult);
+        if(e.shielded){e.shieldHp-=dmg;if(e.shieldHp<=0)e.shielded=false;dmg=Math.floor(dmg*.4);}
+        e.hp-=dmg;e.flashTimer=14;
+        dmgNums.push({x:e.x,y:e.y-12,val:dmg,timer:40,vy:-1.2,color:'#ff8c40'});
+        spawnParts(e.x,e.y,'#ff8c40',8);
+      }
+    });
+    killDead();
+
+    // Despawn if offscreen
+    const ncx=(tp.pts[0].x+tp.pts[1].x+tp.pts[2].x)/3;
+    const ncy=(tp.pts[0].y+tp.pts[1].y+tp.pts[2].y)/3;
+    if(ncx<-150||ncx>W+150||ncy<-150||ncy>H+150) tp.life=0;
+  });
+  triProjectiles=triProjectiles.filter(tp=>tp.life>0);
+  dmgNums.forEach(d=>{d.y+=d.vy*timeScale;d.timer-=timeScale;});
+  dmgNums=dmgNums.filter(d=>d.timer>0);
+
+  // HUD
+  document.getElementById('hpFill').style.width=(P.hp/P.maxHp*100)+'%';
+  document.getElementById('enFill').style.width=(P.en/P.maxEn*100)+'%';
+  // Shield overlaid on HP bar
+  const shFill=document.getElementById('shFill');
+  if(shFill&&P.maxShield>0) shFill.style.width=(P.shield/P.maxShield*100)+'%';
+  // Ult bar
+  updateUltHUD();
+  document.getElementById('scoreVal').innerText=score;
+
+  // Attack hint
+  const hint=document.getElementById('atkHint');
+  if(tPts.length>0){
+    // Show energy cost preview based on partial points + mouse
+    const previewPts=tPts.length===2
+      ? [...tPts,{x:mouse.x,y:mouse.y}]
+      : tPts.length===1
+        ? [tPts[0],{x:mouse.x,y:mouse.y},{x:mouse.x,y:mouse.y}]
+        : null;
+    const costPreview=previewPts?Math.round(calcEnCost(previewPts)):15;
+    hint.innerText=`POINT ${tPts.length}/3  ·  EN ~${costPreview}`;
+  } else if(hasB('equilateral')) hint.innerText='TIP: EQUILATERAL = CRIT';
+  else hint.innerText='';
+
+  // Tutorial
+  if(gs==='tutorial'&&TUTS[tutStep]&&TUTS[tutStep].c())advanceTut();
+
+  // Clear check
+  if(gs==='playing'&&spawnedAll&&enemies.length===0)stageClear();
+
+  if(P.hp<=0){P.hp=0;die();}
+  gridOff=(gridOff+.28*timeScale)%40;
+}
+
+function takeDmg(dmg){
+  if(P.shield>0){P.shield=Math.max(0,P.shield-dmg);spawnParts(P.x,P.y,'#60a0ff',5);}
+  else{P.hp=Math.max(0,P.hp-dmg);spawnParts(P.x,P.y,'#00ffcc',5);}
+  P.invincible=42;
+}
+
+function stageClear(){
+  gs='blessing';
+  const isElite=STAGES[stage-1]?.elite;
+  const isBoss=STAGES[stage-1]?.boss;
+  const msg=isElite?'ELITE DEFEATED':isBoss?'BOSS DEFEATED':`STAGE ${stage} CLEARED`;
+  showWC(msg);
+  // Guaranteed spell unlock on first elite/boss clear
+  if(isElite&&!spellKnown.has('rewind')) setTimeout(()=>learnSpell('rewind'),800);
+  if(isBoss&&!spellKnown.has('mobius'))  setTimeout(()=>learnSpell('mobius'),800);
+  setTimeout(showBlsScreen,1400);
+}
+
+function die(){
+  gs='dead';
+  document.getElementById('deathScreen').classList.remove('hidden');
+  document.getElementById('deathMsg').innerText=`STAGE ${stage}  ·  SCORE ${score}`;
+}
+
+function showWC(msg){
+  const el=document.getElementById('wcTxt');
+  el.innerText=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1500);
+}
+
+// ── Blessing screen ────────────────────────────────────────
+function showBlsScreen(){
+  const opts=getBlessings(stage);
+  document.getElementById('blsHdr').innerText=
+    STAGES[stage-1]?.elite?'ELITE CLEARED · STAGE 5':
+    STAGES[stage-1]?.boss?'BOSS CLEARED · STAGE 10':
+    `STAGE ${stage} CLEARED`;
+  document.getElementById('blsSub').innerText=
+    (STAGES[stage-1]?.elite||STAGES[stage-1]?.boss)?
+    'Choose an attack upgrade — your form evolves':'Choose a passive upgrade';
+  const cards=document.getElementById('blsCards');cards.innerHTML='';
+  opts.forEach(b=>{
+    const div=document.createElement('div');div.className='bls-card';
+    div.innerHTML=`<div class="bc-icon" style="color:${b.color}">${b.icon}</div>
+      <div class="bc-name">${b.name}</div>
+      <div class="bc-type">${b.type}</div>
+      <div class="bc-desc">${b.desc}</div>
+      <div class="bc-tag">${b.tag}</div>`;
+    div.addEventListener('click',()=>{
+      applyBlessing(b.id);
+      document.getElementById('blsScreen').classList.add('hidden');
+      goNextStage();
+    });
+    cards.appendChild(div);
+  });
+  document.getElementById('blsScreen').classList.remove('hidden');
+}
+
+function goNextStage(){
+  if(stage>=10){
+    gs='win';
+    document.getElementById('finalScore').innerText=`SCORE: ${score}  ·  BLESSINGS: ${activeBlessings.size}`;
+    document.getElementById('winScreen').classList.remove('hidden');
+    return;
+  }
+  stage++;
+  P.x=W/2;P.y=H/2;
+  enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
+  eliteShieldCircle=null;spawnedAll=false;
+  STATE_HISTORY.length=0; // fix: clear rewind history on stage transition
+  bossQuadrant=1;bossOverview=false;bossPhaseTimer=0;bossCountdown=0;bossLasers=[];bossCages=[];bossSliceWarnings=[];
+  gs='playing';spawnStage(stage);
+}
+
+// ── Draw ───────────────────────────────────────────────────
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(bossOverview&&stage===10){drawBossOverview();return;}
+  drawGrid();
+  if(stage===10) drawQuadrantOverlay();
+  drawSlowZones();drawBurnMarks();drawTriHazards();drawEliteShield();
+  drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawTriProjectiles();drawTGuide();
+  drawTrail();drawEnemies();drawPlayer();drawDmgNums();
+  if(stage===10) drawQuadrantHUD();
+  drawSpellFlash();
+}
+
+function drawGrid(){
+  ctx.save();ctx.strokeStyle='rgba(20,40,90,.38)';ctx.lineWidth=.5;
+  const off=gridOff%40;
+  for(let x=-off;x<W+40;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=-off;y<H+40;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  ctx.restore();
+}
+
+function drawTrail(){
+  P.trail.forEach(t=>{
+    ctx.save();ctx.globalAlpha=t.life*.2;
+    ctx.beginPath();ctx.arc(t.x,t.y,4,0,Math.PI*2);ctx.fillStyle='#00ffcc';ctx.fill();ctx.restore();
+  });
+}
+
+function drawPlayer(){
+  ctx.save();ctx.translate(P.x,P.y);ctx.rotate(P.angle+Math.PI/2);
+  if(P.invincible>0&&Math.floor(fc/4)%2===0){ctx.restore();return;}
+  ctx.shadowColor='#00ffcc';ctx.shadowBlur=16;
+  const s=P.size;
+  ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s*.85,s*.6);ctx.lineTo(-s*.85,s*.6);ctx.closePath();
+  ctx.strokeStyle='#00ffcc';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.globalAlpha=.13;ctx.fillStyle='#00ffcc';ctx.fill();ctx.globalAlpha=1;
+  ctx.shadowBlur=0;ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fillStyle='#00ffcc';ctx.fill();
+  if(P.shield>0){
+    ctx.globalAlpha=.22+Math.sin(fc*.1)*.08;
+    ctx.beginPath();ctx.arc(0,0,s*1.6,0,Math.PI*2);
+    ctx.strokeStyle='#a0c8ff';ctx.lineWidth=2;ctx.shadowColor='#a0c8ff';ctx.shadowBlur=10;ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawEnemies(){
+  enemies.forEach(e=>{
+    const fl=e.flashTimer>0&&Math.floor(e.flashTimer/2)%2===0;
+    ctx.save();ctx.translate(e.x,e.y);
+    ctx.shadowColor=fl?'#fff':e.color;ctx.shadowBlur=fl?20:10;
+
+    if(e.type==='elite_triangle'){
+      // Rounded triangle via quadratic bezier
+      ctx.rotate(e.spinAngle*.4);
+      const s=e.size,verts=[];
+      for(let i=0;i<3;i++){const a=Math.PI/2+i*Math.PI*2/3;verts.push({x:Math.cos(a)*s,y:Math.sin(a)*s});}
+      ctx.beginPath();
+      verts.forEach((v,i)=>{
+        const nxt=verts[(i+1)%3];
+        const mx=(v.x+nxt.x)/2,my=(v.y+nxt.y)/2;
+        if(i===0)ctx.moveTo(mx,my);
+        ctx.quadraticCurveTo(nxt.x,nxt.y,(nxt.x+verts[(i+2)%3].x)/2,(nxt.y+verts[(i+2)%3].y)/2);
+      });
+      ctx.closePath();
+      ctx.strokeStyle=fl?'#fff':e.color;ctx.lineWidth=2.5;ctx.stroke();
+      ctx.globalAlpha=.1;ctx.fillStyle=e.color;ctx.fill();ctx.globalAlpha=1;
+      // HP phase inner ring
+      ctx.globalAlpha=(e.hp/e.maxHp)*.4;
+      ctx.beginPath();ctx.arc(0,0,e.size*.45,0,Math.PI*2);
+      ctx.strokeStyle=e.color;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;
+    } else if(e.type==='boss'){
+      ctx.rotate(e.spinAngle*.25);
+      for(let i=0;i<6;i++){
+        const a=(Math.PI*2/6)*i;
+        ctx.globalAlpha=.2;
+        ctx.beginPath();ctx.arc(Math.cos(a)*e.size*.45,Math.sin(a)*e.size*.45,e.size*.65,0,Math.PI*2);
+        ctx.strokeStyle=fl?'#fff':e.color;ctx.lineWidth=1;ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+      ctx.beginPath();ctx.arc(0,0,e.size,0,Math.PI*2);
+      ctx.strokeStyle=fl?'#fff':e.color;ctx.lineWidth=2.5;ctx.stroke();
+      ctx.globalAlpha=.1;ctx.fillStyle=e.color;ctx.fill();ctx.globalAlpha=1;
+    } else {
+      ctx.rotate(e.spinAngle);
+      ctx.beginPath();ctx.arc(0,0,e.size,0,Math.PI*2);
+      ctx.strokeStyle=fl?'#fff':e.color;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.1;ctx.fillStyle=e.color;ctx.fill();ctx.globalAlpha=1;
+      // Type decorations
+      if(e.type==='ranged'){
+        ctx.globalAlpha=.45;
+        for(let i=0;i<4;i++){const a=(Math.PI/2)*i;
+          ctx.beginPath();ctx.moveTo(Math.cos(a)*e.size*.55,Math.sin(a)*e.size*.55);
+          ctx.lineTo(Math.cos(a)*e.size*1.35,Math.sin(a)*e.size*1.35);
+          ctx.strokeStyle=e.color;ctx.lineWidth=1;ctx.stroke();}
+        ctx.globalAlpha=1;
+      }
+      if(e.type==='fast'){
+        ctx.globalAlpha=.35;ctx.beginPath();ctx.arc(0,0,e.size*.4,0,Math.PI*2);
+        ctx.strokeStyle=e.color;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;
+      }
+      if(e.type==='tank'){
+        ctx.globalAlpha=.28;ctx.beginPath();ctx.arc(0,0,e.size*1.22,0,Math.PI*2);
+        ctx.strokeStyle=e.color;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1;
+      }
+    }
+
+    // Shield bubble
+    if(e.shielded){
+      ctx.rotate(-(e.spinAngle*(e.type==='elite_triangle'?.4:1)));
+      ctx.globalAlpha=.28+Math.sin(fc*.09)*.1;
+      ctx.beginPath();ctx.arc(0,0,e.size+9,0,Math.PI*2);
+      ctx.strokeStyle='#a0c8ff';ctx.lineWidth=2;ctx.shadowColor='#a0c8ff';ctx.shadowBlur=8;ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    ctx.restore();
+
+    // HP bar
+    const bw=e.size*2.4,bh=3;
+    ctx.fillStyle='rgba(255,255,255,.07)';ctx.fillRect(e.x-bw/2,e.y-e.size-9,bw,bh);
+    ctx.fillStyle=e.color;ctx.fillRect(e.x-bw/2,e.y-e.size-9,bw*(e.hp/e.maxHp),bh);
+  });
+}
+
+function drawTriProjectiles(){
+  triProjectiles.forEach(tp=>{
+    // Ghost trail: fading copies of the triangle at past centroid positions
+    tp.trail.forEach((t,i)=>{
+      const alpha=t.life*(i/tp.trail.length)*0.35;
+      if(alpha<=0)return;
+      const offx=t.x-((tp.pts[0].x+tp.pts[1].x+tp.pts[2].x)/3);
+      const offy=t.y-((tp.pts[0].y+tp.pts[1].y+tp.pts[2].y)/3);
+      ctx.save();ctx.globalAlpha=alpha;
+      ctx.beginPath();
+      ctx.moveTo(tp.pts[0].x+offx,tp.pts[0].y+offy);
+      ctx.lineTo(tp.pts[1].x+offx,tp.pts[1].y+offy);
+      ctx.lineTo(tp.pts[2].x+offx,tp.pts[2].y+offy);
+      ctx.closePath();
+      ctx.strokeStyle=tp.isCrit?'#c040ff':'#ff8c40';ctx.lineWidth=1;ctx.stroke();
+      ctx.restore();
+    });
+
+    // Main flying triangle
+    ctx.save();ctx.globalAlpha=tp.life;
+    ctx.beginPath();
+    ctx.moveTo(tp.pts[0].x,tp.pts[0].y);
+    ctx.lineTo(tp.pts[1].x,tp.pts[1].y);
+    ctx.lineTo(tp.pts[2].x,tp.pts[2].y);
+    ctx.closePath();
+    ctx.fillStyle='rgba(255,140,64,0.18)';ctx.fill();
+    ctx.strokeStyle=tp.isCrit?'#e060ff':'#ff8c40';ctx.lineWidth=2;
+    ctx.shadowColor=tp.isCrit?'#e060ff':'#ff8c40';ctx.shadowBlur=tp.isCrit?24:16;ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawTGuide(){
+  if(!tPts.length)return;
+  ctx.save();
+  tPts.forEach((p,i)=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);
+    ctx.fillStyle='#ffe040';ctx.shadowColor='#ffe040';ctx.shadowBlur=10;ctx.fill();
+    ctx.shadowBlur=0;ctx.fillStyle='#ffe040';ctx.font='10px Orbitron';ctx.fillText(i+1,p.x+8,p.y-8);
+  });
+  // Crit preview for equilateral blessing
+  if(hasB('equilateral')&&tPts.length===2){
+    const prev=[tPts[0],tPts[1],{x:mouse.x,y:mouse.y}];
+    const eq=isEquil(prev);
+    ctx.strokeStyle=eq?'rgba(255,224,64,.65)':'rgba(255,224,64,.2)';
+    ctx.lineWidth=eq?2:1;ctx.setLineDash([3,5]);
+    ctx.beginPath();ctx.moveTo(prev[0].x,prev[0].y);
+    prev.forEach(p=>ctx.lineTo(p.x,p.y));ctx.closePath();ctx.stroke();
+    if(eq){
+      ctx.setLineDash([]);ctx.fillStyle='#ffe040';ctx.shadowColor='#ffe040';ctx.shadowBlur=6;
+      ctx.font='bold 11px Orbitron';ctx.fillText('★ CRIT READY',mouse.x+12,mouse.y-10);
+    }
+    ctx.setLineDash([]);
+  }
+  ctx.strokeStyle='rgba(255,224,64,.45)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.moveTo(tPts[0].x,tPts[0].y);
+  for(let i=1;i<tPts.length;i++)ctx.lineTo(tPts[i].x,tPts[i].y);
+  ctx.lineTo(mouse.x,mouse.y);
+  if(tPts.length===2)ctx.lineTo(tPts[0].x,tPts[0].y);
+  ctx.stroke();ctx.restore();
+}
+
+function drawTAnims(){
+  const drawOne=(a)=>{
+    const{pts,timer,max,warn,crit}=a,t=timer/max;
+    ctx.save();ctx.globalAlpha=t*.72;
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);ctx.lineTo(pts[1].x,pts[1].y);ctx.lineTo(pts[2].x,pts[2].y);ctx.closePath();
+    ctx.fillStyle=warn?'rgba(255,80,40,.1)':crit?'rgba(255,224,64,.25)':'rgba(255,224,64,.15)';ctx.fill();
+    ctx.strokeStyle=warn?'#ff5028':crit?'#fff':'#ffe040';
+    ctx.lineWidth=(warn?2:1.5)*t;ctx.shadowColor=warn?'#ff5028':crit?'#fff':'#ffe040';ctx.shadowBlur=18*t;ctx.stroke();
+    ctx.restore();
+  };
+  if(tAnim)drawOne(tAnim);
+  tAnim2.forEach(drawOne);
+}
+
+function drawEBullets(){
+  eBullets.forEach(b=>{
+    ctx.save();ctx.globalAlpha=b.life;
+    ctx.beginPath();ctx.arc(b.x,b.y,b.size,0,Math.PI*2);
+    ctx.fillStyle=b.color;ctx.shadowColor=b.color;ctx.shadowBlur=10;ctx.fill();ctx.restore();
+  });
+}
+
+function drawTriHazards(){
+  triHazards.forEach(h=>{
+    const alpha=h.life*0.55;
+    const pulse=0.7+Math.sin(fc*0.12)*0.3;
+    ctx.save();
+    // Filled zone
+    ctx.globalAlpha=alpha*0.22*pulse;
+    ctx.beginPath();
+    ctx.moveTo(h.pts[0].x,h.pts[0].y);
+    ctx.lineTo(h.pts[1].x,h.pts[1].y);
+    ctx.lineTo(h.pts[2].x,h.pts[2].y);
+    ctx.closePath();
+    ctx.fillStyle='#ff6000';ctx.fill();
+    // Outline
+    ctx.globalAlpha=alpha*0.75*pulse;
+    ctx.strokeStyle='#ff8020';ctx.lineWidth=2;
+    ctx.shadowColor='#ff8020';ctx.shadowBlur=10;
+    ctx.stroke();
+    // Slow indicator text at centre
+    if(h.life>0.3){
+      ctx.globalAlpha=alpha*0.6;
+      ctx.font='9px Orbitron';ctx.fillStyle='#ffaa40';
+      ctx.textAlign='center';ctx.shadowBlur=0;
+      ctx.fillText('HAZARD',h.cx,h.cy+4);
+      ctx.textAlign='left';
+    }
+    ctx.restore();
+  });
+}
+
+function drawExplosions(){
+  explosions.forEach(ex=>{
+    const t=1-ex.life; // 0=just spawned, 1=fading out
+    ctx.save();
+    // Outer shockwave ring
+    ctx.globalAlpha=(1-t)*0.9;
+    ctx.beginPath();ctx.arc(ex.x,ex.y,ex.r,0,Math.PI*2);
+    ctx.strokeStyle='#ffcc40';ctx.lineWidth=3-t*2;
+    ctx.shadowColor='#ff6020';ctx.shadowBlur=20;
+    ctx.stroke();
+    // Inner fill fades fast
+    ctx.globalAlpha=(1-t)*0.3*(1-t);
+    ctx.beginPath();ctx.arc(ex.x,ex.y,ex.r*0.85,0,Math.PI*2);
+    ctx.fillStyle='#ff4000';ctx.fill();
+    // Max radius indicator (dashed circle showing full hit range)
+    ctx.globalAlpha=(1-t)*0.35;
+    ctx.beginPath();ctx.arc(ex.x,ex.y,ex.maxR,0,Math.PI*2);
+    ctx.strokeStyle='#ff8020';ctx.lineWidth=1;
+    ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]);
+    ctx.restore();
+  });
+}
+
+function drawBurnMarks(){
+  burnMarks.forEach(b=>{
+    ctx.save();ctx.globalAlpha=b.life*.33;
+    const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+    g.addColorStop(0,'rgba(192,96,255,.5)');g.addColorStop(1,'rgba(192,96,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=b.life*.55;
+    const pulse=Math.sin(fc*.09)*.1+.9;
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r*pulse,0,Math.PI*2);
+    ctx.strokeStyle='#c060ff';ctx.lineWidth=1;ctx.shadowColor='#c060ff';ctx.shadowBlur=7;ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawSlowZones(){
+  slowZones.forEach(z=>{
+    const t=z.timer/280;
+    ctx.save();ctx.globalAlpha=t*.18;
+    ctx.beginPath();ctx.arc(z.x,z.y,z.r,0,Math.PI*2);ctx.fillStyle='#4080ff';ctx.fill();
+    ctx.globalAlpha=t*.4;ctx.strokeStyle='#6090ff';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+  });
+}
+
+function drawEliteShield(){
+  if(!eliteShieldCircle)return;
+  const{x,y,r,timer}=eliteShieldCircle,t=timer/280;
+  ctx.save();ctx.globalAlpha=t*.16;
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle='#60a0ff';ctx.fill();
+  ctx.globalAlpha=t*.48;
+  const pulse=Math.sin(fc*.06)*.08+.92;
+  ctx.beginPath();ctx.arc(x,y,r*pulse,0,Math.PI*2);
+  ctx.strokeStyle='#a0c8ff';ctx.lineWidth=2;ctx.shadowColor='#a0c8ff';ctx.shadowBlur=10;ctx.stroke();
+  ctx.restore();
+}
+
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();ctx.restore();
+  });
+}
+
+function drawDmgNums(){
+  dmgNums.forEach(d=>{
+    ctx.save();ctx.globalAlpha=d.timer/40;
+    ctx.font='bold 13px Orbitron';ctx.fillStyle=d.color||'#ffe040';
+    ctx.shadowColor=d.color||'#ffe040';ctx.shadowBlur=7;ctx.fillText('-'+d.val,d.x,d.y);ctx.restore();
+  });
+}
+
+// ── Boss Overview: zoom-out showing all 4 quadrants as axes ──
+function drawBossOverview(){
+  const t=bossOverviewTimer/OVERVIEW_FRAMES; // 0..1
+  const fadeIn=Math.min(t*4,1);
+  ctx.save();
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=fadeIn;
+
+  // Draw full coordinate axes
+  const ox=W/2,oy=H/2;
+  ctx.strokeStyle='rgba(0,255,204,0.5)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(W,oy);ctx.stroke(); // x-axis
+  ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,H);ctx.stroke(); // y-axis
+
+  // Axis arrows
+  const arr=[[W-8,oy-5],[W,oy],[W-8,oy+5]];
+  ctx.beginPath();arr.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  const arr2=[[ox-5,8],[ox,0],[ox+5,8]];
+  ctx.beginPath();arr2.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+
+  // Axis labels
+  ctx.font='bold 13px Orbitron';ctx.fillStyle='rgba(0,255,204,0.7)';
+  ctx.fillText('+x',W-28,oy-12);
+  ctx.fillText('+y',ox+10,16);
+  ctx.fillText('-x',6,oy-12);
+  ctx.fillText('-y',ox+10,H-10);
+
+  // Quadrant labels with current target highlight
+  const newQ=bossQuadrant;
+  const qLabels=[['Q1',ox+50,oy-60,'normal'],['Q2',ox-90,oy-60,'flip x'],
+                  ['Q3',ox-90,oy+70,'flip x+y'],['Q4',ox+50,oy+70,'flip y']];
+  qLabels.forEach(([lbl,qx,qy,sub],i)=>{
+    const isNew=i+1===newQ;
+    ctx.globalAlpha=fadeIn*(isNew?1:.4);
+    ctx.font=`bold ${isNew?18:13}px Orbitron`;
+    ctx.fillStyle=isNew?'#ffe040':'rgba(0,255,204,0.6)';
+    ctx.shadowColor=isNew?'#ffe040':'transparent';ctx.shadowBlur=isNew?16:0;
+    ctx.fillText(lbl,qx,qy);
+    ctx.font='11px Inter';ctx.fillStyle=isNew?'rgba(255,224,64,0.7)':'rgba(200,216,255,0.3)';
+    ctx.fillText(sub,qx,qy+18);
+    ctx.shadowBlur=0;
+  });
+
+  // Boss at centre
+  ctx.globalAlpha=fadeIn;
+  ctx.beginPath();ctx.arc(ox,oy,20+Math.sin(fc*.1)*3,0,Math.PI*2);
+  ctx.strokeStyle='#ff4040';ctx.lineWidth=2;ctx.shadowColor='#ff4040';ctx.shadowBlur=20;ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // Phase label
+  const phaseNames=['','PHASE I','PHASE II','PHASE III','PHASE IV'];
+  if(t>0.3){
+    const ta=Math.min((t-0.3)*3,1);
+    ctx.globalAlpha=ta;
+    ctx.font='bold 28px Orbitron';ctx.fillStyle='#ff4040';ctx.shadowColor='#ff4040';ctx.shadowBlur=20;
+    ctx.textAlign='center';
+    ctx.fillText(phaseNames[newQ]||'',W/2,H/2+80);
+    ctx.font='12px Orbitron';ctx.fillStyle='rgba(255,64,64,0.6)';
+    const flipLabels=['','controls normal','LEFT / RIGHT swapped','ALL controls inverted','UP / DOWN swapped'];
+    ctx.fillText(flipLabels[newQ]||'',W/2,H/2+104);
+    ctx.textAlign='left';ctx.shadowBlur=0;
+  }
+  // Teleport warning at the end of overview
+  if(t>0.75){
+    const ta2=Math.min((t-0.75)*4,1);
+    ctx.globalAlpha=ta2*(0.6+Math.sin(fc*.3)*.4);
+    ctx.font='bold 13px Orbitron';ctx.fillStyle='#ffe040';ctx.shadowColor='#ffe040';ctx.shadowBlur=12;
+    ctx.textAlign='center';
+    ctx.fillText('TELEPORTING TO NEW QUADRANT...',W/2,H/2+136);
+    ctx.textAlign='left';ctx.shadowBlur=0;
+  }
+  ctx.restore();
+}
+
+// ── Quadrant overlay: faint axis lines + shading during boss fight ──
+function drawQuadrantOverlay(){
+  const ox=W/2,oy=H/2;
+  // Faint quadrant shading
+  const qColors=['rgba(0,255,100,0.03)','rgba(80,80,255,0.03)',
+                  'rgba(255,80,80,0.03)','rgba(255,200,0,0.03)'];
+  [[ox,0,W-ox,oy],[0,0,ox,oy],[0,oy,ox,H-oy],[ox,oy,W-ox,H-oy]].forEach(([rx,ry,rw,rh],i)=>{
+    const isActive=i+1===bossQuadrant;
+    ctx.save();ctx.globalAlpha=isActive?.08:.03;
+    ctx.fillStyle=qColors[i];ctx.fillRect(rx,ry,rw,rh);ctx.restore();
+  });
+  // Axis lines
+  ctx.save();ctx.strokeStyle='rgba(0,255,204,0.18)';ctx.lineWidth=1;ctx.setLineDash([6,6]);
+  ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(W,oy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,H);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+}
+
+// ── Draw boss lasers, slice warnings ──────────────────────────────
+function drawBossEffects(){
+  // Lasers
+  bossLasers.forEach(l=>{
+    ctx.save();ctx.globalAlpha=l.life*.65;
+    ctx.strokeStyle=l.color||'#ff8020';ctx.lineWidth=3+Math.sin(fc*.18)*1.5;
+    ctx.shadowColor=l.color||'#ff8020';ctx.shadowBlur=18;
+    ctx.beginPath();
+    if(l.axis==='x'){ctx.moveTo(0,l.pos);ctx.lineTo(W,l.pos);}
+    else{ctx.moveTo(l.pos,0);ctx.lineTo(l.pos,H);}
+    ctx.stroke();ctx.restore();
+  });
+
+  // Slice warnings
+  bossSliceWarnings.forEach(s=>{
+    const pulse=Math.sin(fc*.25)*.3+.7;
+    ctx.save();ctx.globalAlpha=s.active?.9:pulse*.55;
+    ctx.strokeStyle=s.active?'#ffffff':'#ff60a0';
+    ctx.lineWidth=s.active?4:2;
+    ctx.shadowColor=s.active?'#fff':'#ff60a0';ctx.shadowBlur=s.active?28:10;
+    ctx.setLineDash(s.active?[]:[8,6]);
+    ctx.beginPath();
+    if(s.axis==='x'){ctx.moveTo(0,s.pos);ctx.lineTo(W,s.pos);}
+    else{ctx.moveTo(s.pos,0);ctx.lineTo(s.pos,H);}
+    ctx.stroke();
+    // Warning text
+    if(!s.active){
+      ctx.setLineDash([]);ctx.font='10px Orbitron';ctx.fillStyle='#ff60a0';
+      ctx.globalAlpha=pulse*.7;
+      if(s.axis==='x')ctx.fillText('MIRROR SLICE',W/2-46,s.pos-6);
+      else ctx.fillText('MIRROR SLICE',s.pos+6,H/2);
+    }
+    ctx.restore();
+  });
+}
+
+// ── Quadrant HUD: phase label + control hint top-left ─────────────
+function drawQuadrantHUD(){
+  if(bossOverview)return;
+  const qNames=['','PHASE I · Q1','PHASE II · Q2','PHASE III · Q3','PHASE IV · Q4'];
+  const qHints=['','controls normal','← → swapped','all inverted','↑ ↓ swapped'];
+  const qColors=['','#00ff88','#8080ff','#ff8040','#ffd040'];
+  const q=bossQuadrant;
+  ctx.save();
+  ctx.textAlign='center';
+
+  // Phase label at bottom
+  ctx.font='bold 11px Orbitron';ctx.fillStyle=qColors[q]||'#fff';
+  ctx.shadowColor=qColors[q]||'#fff';ctx.shadowBlur=8;
+  ctx.fillText(qNames[q]||'',W/2,H-18);
+  ctx.font='9px Orbitron';ctx.fillStyle='rgba(255,255,255,0.45)';ctx.shadowBlur=0;
+  ctx.fillText(qHints[q]||'',W/2,H-6);
+
+  // Countdown display
+  if(bossCountdown>0){
+    const secs=Math.ceil(bossCountdown/60);
+    const progress=bossCountdown/BOSS_COUNTDOWN_START; // 1→0
+    // Pulse intensity increases as countdown nears 0
+    const pulse=0.65+Math.sin(fc*(0.15+(.4*(1-progress))))*0.35;
+    const alpha=Math.min(1,pulse);
+    const size=Math.floor(28+20*(1-progress)); // grows as time runs out
+
+    // Background flash on the whole screen when < 1s
+    if(bossCountdown<60){
+      ctx.globalAlpha=(1-bossCountdown/60)*0.12*(0.5+Math.sin(fc*.5)*.5);
+      ctx.fillStyle='#ff0000';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    ctx.globalAlpha=alpha;
+    ctx.font=`bold ${size}px Orbitron`;
+    ctx.fillStyle=bossCountdown<60?'#ff2020':bossCountdown<120?'#ff8020':'#ffe040';
+    ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=20+20*(1-progress);
+    ctx.fillText(secs,W/2,H/2-60);
+
+    // "PHASE SHIFT IMMINENT" warning text
+    ctx.font='bold 11px Orbitron';
+    ctx.fillStyle='rgba(255,100,40,'+alpha.toFixed(2)+')';
+    ctx.shadowBlur=8;
+    ctx.fillText('— PHASE SHIFT IMMINENT —',W/2,H/2-30);
+    ctx.shadowBlur=0;
+  }
+
+  ctx.textAlign='left';ctx.restore();
+}
+
+let _lastTs=0;
+function loop(ts){
+  // 计算真实帧间隔，上限50ms（防止切换标签回来时一次性跳太多）
+  const rawDt=ts-_lastTs;
+  _lastTs=ts;
+  // realDt: 真实毫秒，转换成60fps等效帧数（16.667ms = 1帧）
+  // 限制在 1~3 帧之间防止极端情况
+  window._realDt=Math.min(Math.max(rawDt/16.667, 0.5), 3.0);
+  update();draw();requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{_lastTs=ts;requestAnimationFrame(loop);});
+</script>
+</body>
+</html>

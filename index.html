@@ -52,6 +52,53 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
 
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:rgba(5,5,8,.94);backdrop-filter:blur(4px);z-index:10;}
+
+/* Form select screen */
+#formSelectScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;background:rgba(3,4,12,.97);z-index:11;backdrop-filter:blur(8px);}
+#formSelectScreen.hidden{display:none;}
+.form-grid{display:flex;gap:20px;margin:24px 0;}
+.form-card{width:170px;padding:22px 14px;border:1px solid rgba(0,255,204,.15);
+  background:rgba(8,12,20,.9);cursor:pointer;transition:all .22s;
+  display:flex;flex-direction:column;align-items:center;position:relative;border-radius:2px;}
+.form-card:hover{border-color:rgba(0,255,204,.55);transform:translateY(-4px);
+  box-shadow:0 8px 28px rgba(0,255,204,.12);}
+.form-card.selected{border-color:var(--pc);box-shadow:0 0 20px rgba(0,255,204,.25);
+  background:rgba(0,255,204,.05);}
+.form-card.selected-2{border-color:#ffe040;box-shadow:0 0 20px rgba(255,224,64,.2);
+  background:rgba(255,224,64,.04);}
+.form-canvas{width:80px;height:80px;margin-bottom:12px;}
+.form-name{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:2px;
+  color:var(--pc);margin-bottom:4px;text-align:center;}
+.form-role{font-size:9px;color:rgba(200,216,255,.35);letter-spacing:1px;margin-bottom:8px;}
+.form-desc{font-size:10px;color:rgba(200,216,255,.6);line-height:1.55;text-align:center;}
+.form-slot{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;
+  margin-top:10px;padding:2px 8px;border-radius:2px;}
+.form-slot.p1{border:1px solid rgba(0,255,204,.4);color:rgba(0,255,204,.6);}
+.form-slot.p2{border:1px solid rgba(255,224,64,.4);color:rgba(255,224,64,.6);}
+.form-select-hint{font-size:10px;color:rgba(200,216,255,.3);letter-spacing:2px;margin-top:6px;}
+
+/* Narrative cutscene */
+#narrativeScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;background:rgba(2,2,6,.98);z-index:15;pointer-events:none;opacity:0;
+  transition:opacity .6s;}
+#narrativeScreen.show{opacity:1;pointer-events:all;}
+#narrativeTxt{font-family:'Orbitron',monospace;font-size:15px;line-height:2.2;
+  color:rgba(200,216,255,.8);letter-spacing:2px;text-align:center;max-width:600px;}
+#narrativeSub{font-size:11px;color:rgba(0,255,204,.5);letter-spacing:3px;margin-top:28px;
+  text-align:center;animation:pulse 1.5s infinite;}
+
+/* Tab indicator */
+#formHUD{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:10px;pointer-events:none;z-index:8;}
+.form-pip{width:32px;height:32px;border:1px solid rgba(0,255,204,.25);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:7px;color:rgba(0,255,204,.4);
+  position:relative;border-radius:1px;}
+.form-pip.active{border-color:var(--pc);color:var(--pc);box-shadow:0 0 10px rgba(0,255,204,.3);}
+.form-pip canvas{width:28px;height:28px;}
+#tabCD{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(0,255,204,.3);
+  transform-origin:left;transition:transform .1s linear;}
 .screen.hidden{display:none;}
 .s-title{font-family:'Orbitron',monospace;font-size:40px;font-weight:900;letter-spacing:6px;
   color:var(--pc);text-shadow:0 0 28px var(--pc),0 0 56px rgba(0,255,204,.25);margin-bottom:6px;}
@@ -157,12 +204,40 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
   <div class="screen" id="titleScreen">
     <div class="s-title">FORM·RIFT</div>
     <div class="s-sub">GEOMETRIC ROGUELITE · 10 STAGES</div>
-    <button class="btn" id="startBtn">START</button>
+    <button class="btn" id="startBtn">SELECT FORM</button>
     <div style="margin-top:18px;font-size:10px;color:rgba(200,216,255,.25);
       letter-spacing:2px;text-align:center;line-height:2.4">
       WASD MOVE &nbsp;·&nbsp; MOUSE AIM<br>
       LEFT CLICK × 3 → TRIANGLE ATTACK<br>
-      RIGHT CLICK → SHIELD (if unlocked)
+      TAB → SWITCH FORM
+    </div>
+  </div>
+
+  <!-- Form Selection Screen -->
+  <div id="formSelectScreen" class="hidden">
+    <div class="s-title" style="font-size:26px;margin-bottom:4px">CHOOSE YOUR FORMS</div>
+    <div class="s-sub" style="margin-bottom:0">Select PRIMARY · then SECONDARY</div>
+    <div class="form-grid" id="formGrid"></div>
+    <div class="form-select-hint" id="formHint">Click to select PRIMARY form</div>
+    <button class="btn" id="formConfirmBtn" style="margin-top:20px;display:none">BEGIN →</button>
+  </div>
+
+  <!-- Narrative Cutscene -->
+  <div id="narrativeScreen">
+    <div id="narrativeTxt"></div>
+    <div id="narrativeSub"></div>
+  </div>
+
+  <!-- In-game form HUD (top center) -->
+  <div id="formHUD" style="display:none">
+    <div class="form-pip active" id="formPip0">
+      <canvas id="formPipC0" width="28" height="28"></canvas>
+    </div>
+    <div style="font-family:Orbitron,monospace;font-size:8px;color:rgba(0,255,204,.3);
+      align-self:center;letter-spacing:1px">TAB</div>
+    <div class="form-pip" id="formPip1">
+      <canvas id="formPipC1" width="28" height="28"></canvas>
+      <div id="tabCD" style="transform:scaleX(0)"></div>
     </div>
   </div>
 
@@ -194,10 +269,82 @@ let gs='title',keys={},mouse={x:W/2,y:H/2};
 let score=0,fc=0,stage=1,spawnedAll=false;
 
 // ── Player ───────────────────────────────────────────────
+// ── Form Definitions ────────────────────────────────────
+const FORMS={
+  equilateral:{
+    id:'equilateral',name:'EQUILATERAL',role:'BALANCED',
+    color:'#00ffcc',size:18,speed:3.2,dmgMult:1.0,
+    desc:'Versatile fighter. Click to fire triangle projectiles.',
+    icon:'▲',
+    draw(ctx,s,fc){
+      ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s*.85,s*.6);ctx.lineTo(-s*.85,s*.6);ctx.closePath();
+      ctx.strokeStyle=this.color;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.13;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+    },
+    onAttack:null, // uses default triangle click
+  },
+  acute:{
+    id:'acute',name:'ACUTE',role:'ASSASSIN',
+    color:'#ff4060',size:16,speed:4.2,dmgMult:1.4,
+    desc:'Fast & deadly. Auto-lunges at nearest enemy.',
+    icon:'◈',
+    draw(ctx,s,fc){
+      // Narrow acute triangle - tall and thin
+      ctx.beginPath();ctx.moveTo(0,-s*1.3);ctx.lineTo(s*.4,s*.7);ctx.lineTo(-s*.4,s*.7);ctx.closePath();
+      ctx.strokeStyle=this.color;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.15;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+    },
+    onAttack:'lunge', // auto lunge toward nearest enemy
+  },
+  obtuse:{
+    id:'obtuse',name:'OBTUSE',role:'GUARDIAN',
+    color:'#4080ff',size:22,speed:2.2,dmgMult:0.7,
+    desc:'Wide & resilient. Deflects bullets. More HP.',
+    icon:'◭',
+    draw(ctx,s,fc){
+      // Wide flat obtuse triangle
+      ctx.beginPath();ctx.moveTo(0,-s*.5);ctx.lineTo(s*1.2,s*.8);ctx.lineTo(-s*1.2,s*.8);ctx.closePath();
+      ctx.strokeStyle=this.color;ctx.lineWidth=2;ctx.stroke();
+      ctx.globalAlpha=.18;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+    },
+    onAttack:'deflect',
+  },
+  right:{
+    id:'right',name:'RIGHT ANGLE',role:'PHANTOM',
+    color:'#c080ff',size:18,speed:3.5,dmgMult:1.1,
+    desc:'Dash-blink on Tab. Leaves afterimage decoys.',
+    icon:'◿',
+    draw(ctx,s,fc){
+      // Right angle triangle
+      ctx.beginPath();ctx.moveTo(-s*.8,s*.7);ctx.lineTo(-s*.8,-s*.8);ctx.lineTo(s*.9,s*.7);ctx.closePath();
+      ctx.strokeStyle=this.color;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.13;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+    },
+    onAttack:null,
+  },
+};
+
+// Player equipped forms (set at form select screen)
+let equippedForms=['equilateral','equilateral']; // [primary, secondary]
+let activeFormIdx=0;
+let tabCooldownMs=0;
+const TAB_CD_MS=2500; // 2.5s switch cooldown
+let phantomDecoys=[]; // right-angle afterimages
+
+function currentForm(){ return FORMS[equippedForms[activeFormIdx]]; }
+function applyFormStats(){
+  const f=currentForm();
+  P.speed=f.speed*(hasB('spd_up')?1.15:1);
+  P.dmgMult=f.dmgMult;
+  P.size=f.size;
+  if(f.id==='obtuse'&&P.maxHp<130) P.maxHp=130;
+  else if(f.id!=='obtuse'&&P.maxHp>100) P.maxHp=100;
+}
+
 const P={x:W/2,y:H/2,size:18,angle:0,speed:3.2,
   hp:100,maxHp:100,shield:0,maxShield:0,
   en:100,maxEn:100,enRegen:.18,
-  ult:0,maxUlt:100,           // ultimate gauge
+  ult:0,maxUlt:100,
   invincible:0,trail:[],dmgMult:1.0};
 
 // ── Blessings ─────────────────────────────────────────────
@@ -334,8 +481,8 @@ function getBlessings(s){
 function applyBlessing(id){
   addB(id);
   if(id==='hp_up'){P.maxHp+=25;P.hp=Math.min(P.maxHp,P.hp+25);}
-  if(id==='dmg_up') P.dmgMult+=0.2;
-  if(id==='spd_up') P.speed*=1.15;
+  if(id==='dmg_up') P.dmgMult+=0.12;
+  if(id==='spd_up') P.speed*=1.10;
   if(id==='en_regen') P.enRegen*=1.5;
   if(id==='hp_heal') P.hp=Math.min(P.maxHp,P.hp+30);
   if(id==='shield_kill'){P.maxShield=40;(document.getElementById('shieldRow')||{style:{}}).style.display='flex';}
@@ -358,6 +505,7 @@ function updateBBar(){
 document.addEventListener('keydown',e=>{
   keys[e.key.toLowerCase()]=true;
   if(e.key.toLowerCase()==='e'&&!e.repeat) startECharge();
+  if(e.key==='Tab'){e.preventDefault();trySwapForm();}
 });
 document.addEventListener('keyup',e=>{
   keys[e.key.toLowerCase()]=false;
@@ -432,9 +580,87 @@ C.addEventListener('contextmenu',e=>{
     P.en-=30;spawnParts(P.x,P.y,'#60a0ff',20);
   }
 });
-document.getElementById('startBtn').addEventListener('click',startGame);
-document.getElementById('restartBtn').addEventListener('click',startGame);
-document.getElementById('playAgainBtn').addEventListener('click',startGame);
+document.getElementById('startBtn').addEventListener('click',()=>{
+  // Show form select screen instead of jumping straight to game
+  document.getElementById('titleScreen').classList.add('hidden');
+  document.getElementById('formSelectScreen').classList.remove('hidden');
+  buildFormSelectUI();
+});
+
+function buildFormSelectUI(){
+  const grid=document.getElementById('formGrid');
+  grid.innerHTML='';
+  let sel1=null,sel2=null;
+  const hint=document.getElementById('formHint');
+  const confirmBtn=document.getElementById('formConfirmBtn');
+
+  Object.values(FORMS).forEach(f=>{
+    const card=document.createElement('div');
+    card.className='form-card';
+    // Mini canvas preview
+    const cvs=document.createElement('canvas');
+    cvs.className='form-canvas';cvs.width=80;cvs.height=80;
+    const c2=cvs.getContext('2d');
+    c2.translate(40,40);
+    c2.shadowColor=f.color;c2.shadowBlur=14;
+    f.draw(c2,24,0);
+    card.appendChild(cvs);
+
+    card.innerHTML+=`<div class="form-name">${f.name}</div>
+      <div class="form-role">${f.role}</div>
+      <div class="form-desc">${f.desc}</div>`;
+
+    card.addEventListener('click',()=>{
+      if(!sel1||sel1===f.id){
+        // Select as primary
+        sel1=f.id;sel2=null;
+        grid.querySelectorAll('.form-card').forEach(c=>{
+          c.classList.remove('selected','selected-2');
+          c.querySelector('.form-slot')?.remove();
+        });
+        card.classList.add('selected');
+        const slot=document.createElement('div');
+        slot.className='form-slot p1';slot.innerText='PRIMARY';
+        card.appendChild(slot);
+        hint.innerText='Now click to select SECONDARY form';
+        confirmBtn.style.display='none';
+      } else if(f.id!==sel1){
+        // Select as secondary
+        sel2=f.id;
+        grid.querySelectorAll('.form-card.selected-2').forEach(c=>{
+          c.classList.remove('selected-2');
+          c.querySelector('.form-slot.p2')?.remove();
+        });
+        card.classList.add('selected-2');
+        const slot=document.createElement('div');
+        slot.className='form-slot p2';slot.innerText='SECONDARY';
+        card.appendChild(slot);
+        hint.innerText='Ready! Press BEGIN to start.';
+        confirmBtn.style.display='block';
+      }
+    });
+    grid.appendChild(card);
+  });
+
+  confirmBtn.onclick=()=>{
+    if(!sel1||!sel2) return;
+    equippedForms=[sel1,sel2];
+    activeFormIdx=0;
+    document.getElementById('formSelectScreen').classList.add('hidden');
+    startGame();
+  };
+}
+document.getElementById('restartBtn').addEventListener('click',()=>{
+  // Go back to form select on retry
+  document.getElementById('deathScreen').classList.add('hidden');
+  document.getElementById('formSelectScreen').classList.remove('hidden');
+  buildFormSelectUI();
+});
+document.getElementById('playAgainBtn').addEventListener('click',()=>{
+  document.getElementById('winScreen').classList.add('hidden');
+  document.getElementById('formSelectScreen').classList.remove('hidden');
+  buildFormSelectUI();
+});
 
 // ── Game init ──────────────────────────────────────────────
 function startGame(){
@@ -446,15 +672,22 @@ function startGame(){
   document.getElementById('spellCanvas').style.display='none';
   document.getElementById('spellHUD').style.display='none';
   updateChargeRing(0);updateSpellCD();updateReviveHUD();
-  Object.assign(P,{x:W/2,y:H/2,hp:100,maxHp:100,shield:0,maxShield:0,
-    en:100,maxEn:100,enRegen:.18,ult:0,maxUlt:100,invincible:0,trail:[],speed:3.2,dmgMult:1.0});
+  activeFormIdx=0;tabCooldownMs=0;phantomDecoys=[];
+  applyFormStats();
+  const obtuse=currentForm().id==='obtuse';
+  Object.assign(P,{x:W/2,y:H/2,hp:obtuse?130:100,maxHp:obtuse?130:100,shield:0,maxShield:0,
+    en:100,maxEn:100,enRegen:.18,ult:0,maxUlt:100,invincible:0,trail:[],
+    speed:currentForm().speed,dmgMult:currentForm().dmgMult,size:currentForm().size});
+  updateFormHUD();
   const ultRowEl=document.getElementById('ultRow');if(ultRowEl)ultRowEl.style.display='flex';
   updateUltHUD();
   activeBlessings.clear();
   enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
   tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;
   tutStep=0;pMoved=0;mMoved=0;atkUsed=0;
-  ['titleScreen','deathScreen','winScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('narrativeScreen').classList.remove('show');
+  updateFormHUD();
   document.getElementById('blsScreen').classList.add('hidden');
   document.getElementById('blessingBar').innerHTML='';
   (document.getElementById('shieldRow')||{style:{}}).style.display='none';
@@ -1288,10 +1521,145 @@ function learnSpell(name){
   showSpellFlash('SPELL EQUIPPED: '+name.toUpperCase(),'#c080ff');
 }
 
+// ── Form Switch ─────────────────────────────────────────────
+function trySwapForm(){
+  if(!['tutorial','playing'].includes(gs)) return;
+  if(tabCooldownMs>0) return; // still cooling down
+  if(equippedForms[0]===equippedForms[1]) return; // same form
+
+  // Phantom form: dash-blink on swap
+  if(currentForm().id==='right'){
+    spawnPhantomDecoy();
+    const ang=P.angle;
+    P.x+=Math.cos(ang)*60;P.y+=Math.sin(ang)*60;
+    P.x=Math.max(24,Math.min(W-24,P.x));
+    P.y=Math.max(24,Math.min(H-24,P.y));
+    P.invincible=30;
+  }
+
+  activeFormIdx=1-activeFormIdx;
+  tabCooldownMs=TAB_CD_MS;
+  applyFormStats();
+  spawnParts(P.x,P.y,currentForm().color,20);
+  updateFormHUD();
+}
+
+function spawnPhantomDecoy(){
+  phantomDecoys.push({x:P.x,y:P.y,angle:P.angle,life:1,color:'#c080ff',size:P.size});
+}
+
+function updateFormHUD(){
+  const hud=document.getElementById('formHUD');
+  if(!hud) return;
+  hud.style.display=['tutorial','playing'].includes(gs)?'flex':'none';
+  [0,1].forEach(i=>{
+    const pip=document.getElementById('formPip'+i);
+    const cvs=document.getElementById('formPipC'+i);
+    if(!pip||!cvs) return;
+    pip.className='form-pip'+(i===activeFormIdx?' active':'');
+    const f=FORMS[equippedForms[i]];
+    if(!f) return;
+    const c2=cvs.getContext('2d');
+    c2.clearRect(0,0,28,28);
+    c2.save();c2.translate(14,14);
+    c2.shadowColor=f.color;c2.shadowBlur=8;
+    f.draw(c2,9,fc);
+    c2.restore();
+  });
+  // Tab cooldown bar on secondary pip
+  const bar=document.getElementById('tabCD');
+  if(bar) bar.style.transform=`scaleX(${tabCooldownMs>0?1-tabCooldownMs/TAB_CD_MS:0})`;
+}
+
+function updateForms(){
+  if(!['tutorial','playing'].includes(gs)) return;
+  const dt=(window._realDt||1)*16.667;
+  if(tabCooldownMs>0){
+    tabCooldownMs=Math.max(0,tabCooldownMs-dt);
+    updateFormHUD();
+  }
+
+  // Acute: auto-lunge toward nearest enemy
+  if(currentForm().id==='acute'){
+    const nearest=enemies.filter(e=>e.hp>0)
+      .sort((a,b)=>Math.hypot(P.x-a.x,P.y-a.y)-Math.hypot(P.x-b.x,P.y-b.y))[0];
+    if(nearest){
+      const dist=Math.hypot(nearest.x-P.x,nearest.y-P.y);
+      if(dist<120){
+        const ang=Math.atan2(nearest.y-P.y,nearest.x-P.x);
+        P.x+=Math.cos(ang)*2.5*timeScale;
+        P.y+=Math.sin(ang)*2.5*timeScale;
+        // Deal contact damage on close
+        if(dist<P.size+nearest.size+4&&nearest.hp>0&&P.invincible<=0){
+          const dmg=Math.floor(18*P.dmgMult);
+          nearest.hp-=dmg;nearest.flashTimer=10;
+          dmgNums.push({x:nearest.x,y:nearest.y-10,val:dmg,vy:-1.2,timer:40,crit:false});
+          if(nearest.hp<=0) killDead();
+          P.invincible=20; // brief iframes after lunge hit
+        }
+      }
+    }
+  }
+
+  // Obtuse: deflect enemy bullets that hit the front face
+  if(currentForm().id==='obtuse'){
+    eBullets=eBullets.filter(b=>{
+      const dist=Math.hypot(b.x-P.x,b.y-P.y);
+      if(dist<P.size+8){
+        // Check if bullet is coming from the front (wide face)
+        const toB=Math.atan2(b.y-P.y,b.x-P.x);
+        const facingAng=P.angle+Math.PI/2; // wide face direction
+        const diff=Math.abs(((toB-facingAng+Math.PI*3)%(Math.PI*2))-Math.PI);
+        if(diff<1.2){ // within ~70 degrees of front face
+          // Deflect: reverse bullet velocity toward nearest enemy
+          const nearest=enemies.filter(e=>e.hp>0)[0];
+          if(nearest){
+            const ang=Math.atan2(nearest.y-b.y,nearest.x-b.x);
+            b.vx=Math.cos(ang)*3;b.vy=Math.sin(ang)*3;
+            b.isDeflected=true;
+            spawnParts(b.x,b.y,'#4080ff',8);
+            return true; // keep bullet (now deflected)
+          }
+        }
+        return false; // absorbed
+      }
+      return true;
+    });
+  }
+
+  // Phantom decoys fade
+  phantomDecoys.forEach(d=>d.life-=0.04*timeScale);
+  phantomDecoys=phantomDecoys.filter(d=>d.life>0);
+
+  // Redirect deflected bullets to damage enemies
+  eBullets.forEach(b=>{
+    if(!b.isDeflected) return;
+    enemies.forEach(e=>{
+      if(e.hp<=0) return;
+      if(Math.hypot(b.x-e.x,b.y-e.y)<e.size+6){
+        e.hp-=20;e.flashTimer=8;
+        b.life=0;
+        spawnParts(e.x,e.y,'#4080ff',10);
+      }
+    });
+  });
+}
+
+function drawPhantomDecoys(){
+  phantomDecoys.forEach(d=>{
+    ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.angle+Math.PI/2);
+    ctx.globalAlpha=d.life*0.45;
+    ctx.shadowColor=d.color;ctx.shadowBlur=10;
+    FORMS['right'].draw(ctx,d.size,fc);
+    ctx.restore();
+  });
+}
+
 // ── Update ─────────────────────────────────────────────────
 function update(){
   fc++;
   updateSpell();
+  updateForms();
   if(!['tutorial','playing'].includes(gs))return;
 
   // Player movement — quadrant flips axes during boss fight
@@ -1506,7 +1874,7 @@ function update(){
     if(b.dmgTimer%45===0){
       enemies.forEach(e=>{
         if(Math.hypot(e.x-b.x,e.y-b.y)<b.r){
-          const bd=Math.floor(6*(hasB('burn_dmg')?1.5:1)*P.dmgMult);
+          const bd=Math.floor(3*(hasB('burn_dmg')?1.4:1)*P.dmgMult);
           e.hp-=bd;e.flashTimer=8;
           dmgNums.push({x:e.x,y:e.y-10,val:bd,timer:30,vy:-1,color:'#c060ff'});
         }
@@ -1636,10 +2004,62 @@ function stageClear(){
   const isBoss=STAGES[stage-1]?.boss;
   const msg=isElite?'ELITE DEFEATED':isBoss?'BOSS DEFEATED':`STAGE ${stage} CLEARED`;
   showWC(msg);
-  // Guaranteed spell unlock on first elite/boss clear
-  if(isElite&&!spellKnown.has('rewind')) setTimeout(()=>learnSpell('rewind'),800);
-  if(isBoss&&!spellKnown.has('mobius'))  setTimeout(()=>learnSpell('mobius'),800);
-  setTimeout(showBlsScreen,1400);
+  if(isElite&&!spellKnown.has('rewind')){
+    // First elite: trigger narrative tutorial before blessing screen
+    setTimeout(()=>triggerSpellNarrative(),900);
+  } else {
+    if(isBoss&&!spellKnown.has('mobius')) setTimeout(()=>learnSpell('mobius'),800);
+    setTimeout(showBlsScreen,1400);
+  }
+}
+
+const NARRATIVE_LINES=[
+  "The elite dissolves...",
+  "But the battle has left you wounded.",
+  "You feel something stir within the geometry—",
+  "a thread of time, coiled and waiting.",
+  "Hold [ E ] to slow the world.",
+  "Trace the pattern. Let time reverse.",
+  "Your wounds, your fallen allies—",
+  "all of it, undone."
+];
+
+function triggerSpellNarrative(){
+  // Drop player HP to ~15% for dramatic effect
+  P.hp=Math.max(1,Math.floor(P.maxHp*0.14));
+  updateBBar();
+
+  const screen=document.getElementById('narrativeScreen');
+  const txt=document.getElementById('narrativeTxt');
+  const sub=document.getElementById('narrativeSub');
+  screen.classList.add('show');
+  txt.innerHTML='';
+  sub.innerText='';
+
+  let lineIdx=0;
+  function typeLine(){
+    if(lineIdx>=NARRATIVE_LINES.length){
+      sub.innerText='[ CLICK TO CONTINUE ]';
+      screen.style.pointerEvents='all';
+      screen.onclick=()=>{
+        screen.classList.remove('show');
+        screen.onclick=null;
+        // Grant rewind spell
+        learnSpell('rewind');
+        // Resume to blessing after short delay
+        setTimeout(showBlsScreen,600);
+      };
+      return;
+    }
+    const line=document.createElement('div');
+    line.style.opacity='0';line.style.transition='opacity .4s';
+    line.innerText=NARRATIVE_LINES[lineIdx];
+    txt.appendChild(line);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>line.style.opacity='1'));
+    lineIdx++;
+    setTimeout(typeLine, lineIdx<5?900:1100);
+  }
+  typeLine();
 }
 
 function die(){
@@ -1693,7 +2113,6 @@ function goNextStage(){
   P.x=W/2;P.y=H/2;
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
   eliteShieldCircle=null;spawnedAll=false;
-  STATE_HISTORY.length=0; // fix: clear rewind history on stage transition
   bossQuadrant=1;bossOverview=false;bossPhaseTimer=0;bossCountdown=0;bossLasers=[];bossCages=[];bossSliceWarnings=[];
   gs='playing';spawnStage(stage);
 }
@@ -1721,20 +2140,21 @@ function drawGrid(){
 
 function drawTrail(){
   P.trail.forEach(t=>{
-    ctx.save();ctx.globalAlpha=t.life*.2;
+    const tf=currentForm();
+  ctx.save();ctx.globalAlpha=t.life*.2;
     ctx.beginPath();ctx.arc(t.x,t.y,4,0,Math.PI*2);ctx.fillStyle='#00ffcc';ctx.fill();ctx.restore();
   });
 }
 
 function drawPlayer(){
+  drawPhantomDecoys();
   ctx.save();ctx.translate(P.x,P.y);ctx.rotate(P.angle+Math.PI/2);
   if(P.invincible>0&&Math.floor(fc/4)%2===0){ctx.restore();return;}
-  ctx.shadowColor='#00ffcc';ctx.shadowBlur=16;
+  const f=currentForm();
+  ctx.shadowColor=f.color;ctx.shadowBlur=16;
   const s=P.size;
-  ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s*.85,s*.6);ctx.lineTo(-s*.85,s*.6);ctx.closePath();
-  ctx.strokeStyle='#00ffcc';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.globalAlpha=.13;ctx.fillStyle='#00ffcc';ctx.fill();ctx.globalAlpha=1;
-  ctx.shadowBlur=0;ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fillStyle='#00ffcc';ctx.fill();
+  f.draw(ctx,s,fc);
+  ctx.shadowBlur=0;ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fillStyle=f.color;ctx.fill();
   if(P.shield>0){
     ctx.globalAlpha=.22+Math.sin(fc*.1)*.08;
     ctx.beginPath();ctx.arc(0,0,s*1.6,0,Math.PI*2);

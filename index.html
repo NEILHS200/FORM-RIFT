@@ -891,7 +891,7 @@ function showEliteAnim(name,sub){
 }
 
 // ── Attack ─────────────────────────────────────────────────
-function getAcuteGuideTri(x,y,size=66){
+function getAcuteGuideTri(x,y,size=84){
   return [0,1,2].map(i=>({x:x+Math.cos(-Math.PI/2+i*Math.PI*2/3)*size,y:y+Math.sin(-Math.PI/2+i*Math.PI*2/3)*size}));
 }
 
@@ -905,7 +905,7 @@ function fireAcutePrimary(x,y){
   }
   atkUsed++;
   P.en=Math.max(0,P.en-cost);
-  const tri=getAcuteGuideTri(x,y,66);
+  const tri=getAcuteGuideTri(x,y,84);
   // One clockwise full loop around cursor triangle, damage synced with trace motion
   acuteClones.push({
     pts:tri,edge:0,t:0,speed:0.18,done:false,
@@ -2645,7 +2645,7 @@ function drawTriProjectiles(){
 
 function drawTGuide(){
   if(currentForm().id==='acute'){
-    const tri=getAcuteGuideTri(mouse.x,mouse.y,66);
+    const tri=getAcuteGuideTri(mouse.x,mouse.y,84);
     ctx.save();
     ctx.setLineDash([6,6]);ctx.strokeStyle='rgba(255,120,140,0.45)';ctx.lineWidth=1.4;
     ctx.beginPath();ctx.moveTo(tri[0].x,tri[0].y);ctx.lineTo(tri[1].x,tri[1].y);ctx.lineTo(tri[2].x,tri[2].y);ctx.closePath();ctx.stroke();

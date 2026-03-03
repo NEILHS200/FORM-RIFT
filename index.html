@@ -370,6 +370,7 @@ let tPts=[],tAnim=null,tAnim2=[],triProjectiles=[],dmgNums=[];
 let triHazards=[];  // lingering triangle burn+slow zones from elite skill
 let explosions=[];  // dash-bomber explosion rings
 let eliteShieldCircle=null;
+let eliteRings=[]; // elite circle-drop then expanding shockwave attacks
 let gridOff=0;
 
 // ── Spell System ─────────────────────────────────────────────
@@ -445,7 +446,7 @@ function makeEnemy(type,x,y){
     ranged:{hp:28, maxHp:28, size:11,speed:.55, color:'#ff80a0',reward:120,shootCd:180},
     fast:  {hp:20, maxHp:20, size:9, speed:2.3, color:'#ff6020',reward:150},
     tank:  {hp:100,maxHp:100,size:21,speed:.42, color:'#cc2040',reward:220},
-    elite_triangle:{hp:350,maxHp:350,size:28,speed:.7,color:'#ff8060',reward:600,
+    elite_triangle:{hp:700,maxHp:700,size:28,speed:.7,color:'#ff8060',reward:600,
       skillTimer:0,skillInterval:220,skillIndex:0},
     boss:  {hp:900,maxHp:900,size:36,speed:.5, color:'#ff4040',reward:2000,
       skillTimer:0,skillInterval:160},
@@ -722,7 +723,7 @@ function startGame(){
   updateUltHUD();
   activeBlessings.clear();
   enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
-  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;
+  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;eliteRings=[];
   tutStep=0;pMoved=0;mMoved=0;swapUsedInTut=false;atkUsed=0;ultUsedInTut=false;
   ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('narrativeScreen').classList.remove('show');
@@ -777,8 +778,8 @@ function spawnStage(s){
     showEliteAnim('ROUNDED TRIANGLE','STAGE 5 ELITE');
     setTimeout(()=>{
       enemies.push(makeEnemy('elite_triangle',W/2,110));
-      enemies.push(makeEnemy('melee',160,160));
-      enemies.push(makeEnemy('melee',740,160));
+      enemies.push(makeEnemy('fast',160,160));
+      enemies.push(makeEnemy('fast',740,160));
       spawnedAll=true;
     },2200);
     return;
@@ -1021,7 +1022,7 @@ function doEliteSkill(e){
       const dist=40+Math.random()*50;
       const cx=Math.max(70,Math.min(W-70, P.x+Math.cos(angle)*dist));
       const cy=Math.max(60,Math.min(H-60, P.y+Math.sin(angle)*dist));
-      const r=70+Math.random()*30;
+      const r=(70+Math.random()*30)*2;
       const tri=[0,1,2].map(i=>({
         x:cx+r*Math.cos(Math.PI/2+i*Math.PI*2/3),
         y:cy+r*Math.sin(Math.PI/2+i*Math.PI*2/3)
@@ -1038,6 +1039,15 @@ function doEliteSkill(e){
         }, Math.round(WARN*1000/60));
       }, k*320);
     }
+
+    // Follow-up: circle drops near player, then expands to full-map shockwave
+    setTimeout(()=>{
+      const ang=Math.random()*Math.PI*2;
+      const dist=70+Math.random()*90;
+      const cx=Math.max(80,Math.min(W-80, P.x+Math.cos(ang)*dist));
+      const cy=Math.max(80,Math.min(H-80, P.y+Math.sin(ang)*dist));
+      eliteRings.push({x:cx,y:cy,r:34,maxR:Math.hypot(W,H),phase:'drop',timer:28,hitDrop:false,hitExpand:false});
+    }, 1200);
   } else if(sk===1){
     // Shield circle + slow zone
     eliteShieldCircle={x:e.x,y:e.y,r:110,timer:280};
@@ -1698,6 +1708,15 @@ function drawPhantomDecoys(){
   });
 }
 
+function canGuardEliteShockwave(ring){
+  if(currentForm().id!=='obtuse') return false;
+  const dx=ring.x-P.x,dy=ring.y-P.y;
+  const len=Math.hypot(dx,dy)||1;
+  const tx=dx/len,ty=dy/len;
+  const fx=Math.cos(P.angle),fy=Math.sin(P.angle);
+  return fx*tx+fy*ty>0.35;
+}
+
 // ── Update ─────────────────────────────────────────────────
 function update(){
   fc++;
@@ -1953,6 +1972,38 @@ function update(){
   });
   triHazards=triHazards.filter(h=>h.life>0);
 
+  // Elite circle-drop shockwave attack
+  eliteRings.forEach(r=>{
+    if(r.phase==='drop'){
+      r.timer-=timeScale;
+      if(r.timer<=0){
+        r.phase='expand';
+        r.r=36;
+        spawnParts(r.x,r.y,'#ff9050',36);
+        if(Math.hypot(P.x-r.x,P.y-r.y)<70&&P.invincible<=0){
+          takeDmg(16);
+          dmgNums.push({x:P.x,y:P.y-18,val:16,timer:38,vy:-1.2,color:'#ff9050'});
+        }
+      }
+    } else if(r.phase==='expand'){
+      r.r+=14*timeScale;
+      const dist=Math.hypot(P.x-r.x,P.y-r.y);
+      const onWave=Math.abs(dist-r.r)<24;
+      if(onWave&&!r.hitExpand&&P.invincible<=0){
+        if(!canGuardEliteShockwave(r)){
+          takeDmg(22);
+          dmgNums.push({x:P.x,y:P.y-18,val:22,timer:42,vy:-1.2,color:'#ff7040'});
+          spawnParts(P.x,P.y,'#ff7040',14);
+        } else {
+          spawnParts(P.x,P.y,'#60a0ff',16);
+        }
+        r.hitExpand=true;
+      }
+      if(r.r>=r.maxR) r.done=true;
+    }
+  });
+  eliteRings=eliteRings.filter(r=>!r.done);
+
   // Explosion rings
   explosions.forEach(ex=>{
     ex.r=ex.maxR*(1-ex.life);
@@ -2055,7 +2106,7 @@ function startSpellTraining(){
   gs='playing';
   // reset arena objects but keep progression
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;spawnedAll=true;
+  eliteShieldCircle=null;eliteRings=[];spawnedAll=true;
   P.x=W/2;P.y=H-120;
   P.en=P.maxEn;
   P.ult=Math.min(P.maxUlt,80);
@@ -2090,7 +2141,7 @@ function finishSpellTraining(){
   const panel=document.getElementById('spellTutPanel');
   if(panel) panel.style.display='none';
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;spawnedAll=false;
+  eliteShieldCircle=null;eliteRings=[];spawnedAll=false;
   showSpellFlash('DRILL COMPLETE  ·  REWIND MASTERED','#60ffb0');
   setTimeout(()=>{
     document.getElementById('blsScreen').classList.add('hidden');
@@ -2212,7 +2263,7 @@ function goNextStage(){
   stage++;
   P.x=W/2;P.y=H/2;
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;spawnedAll=false;
+  eliteShieldCircle=null;eliteRings=[];spawnedAll=false;
   bossQuadrant=1;bossOverview=false;bossPhaseTimer=0;bossCountdown=0;bossLasers=[];bossCages=[];bossSliceWarnings=[];
   gs='playing';spawnStage(stage);
 }
@@ -2223,7 +2274,7 @@ function draw(){
   if(bossOverview&&stage===10){drawBossOverview();return;}
   drawGrid();
   if(stage===10) drawQuadrantOverlay();
-  drawSlowZones();drawBurnMarks();drawTriHazards();drawEliteShield();
+  drawSlowZones();drawBurnMarks();drawTriHazards();drawEliteRings();drawEliteShield();
   drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawTriProjectiles();drawTGuide();
   drawTrail();drawEnemies();drawPlayer();drawDmgNums();
   if(stage===10) drawQuadrantHUD();
@@ -2450,6 +2501,31 @@ function drawTriHazards(){
       ctx.textAlign='center';ctx.shadowBlur=0;
       ctx.fillText('HAZARD',h.cx,h.cy+4);
       ctx.textAlign='left';
+    }
+    ctx.restore();
+  });
+}
+
+function drawEliteRings(){
+  eliteRings.forEach(r=>{
+    ctx.save();
+    if(r.phase==='drop'){
+      const t=Math.max(0,r.timer/28);
+      const pulse=1+Math.sin(fc*0.24)*0.08;
+      ctx.globalAlpha=0.18+0.22*(1-t);
+      ctx.beginPath();ctx.arc(r.x,r.y,r.r*pulse,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,120,60,0.28)';ctx.fill();
+      ctx.globalAlpha=0.75;
+      ctx.beginPath();ctx.arc(r.x,r.y,r.r*pulse,0,Math.PI*2);
+      ctx.strokeStyle='#ff9050';ctx.lineWidth=2;ctx.shadowColor='#ff9050';ctx.shadowBlur=12;ctx.stroke();
+    } else {
+      const alpha=Math.max(0.15,1-r.r/r.maxR);
+      ctx.globalAlpha=alpha;
+      ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);
+      ctx.strokeStyle='#ff7040';ctx.lineWidth=4;ctx.shadowColor='#ff7040';ctx.shadowBlur=18;ctx.stroke();
+      ctx.globalAlpha=alpha*0.18;
+      ctx.beginPath();ctx.arc(r.x,r.y,Math.max(0,r.r-16),0,Math.PI*2);
+      ctx.fillStyle='#ff7040';ctx.fill();
     }
     ctx.restore();
   });

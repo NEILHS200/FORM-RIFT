@@ -375,7 +375,7 @@ let triHazards=[];  // lingering triangle burn+slow zones from elite skill
 let explosions=[];  // dash-bomber explosion rings
 let eliteShieldCircle=null;
 let eliteRings=[]; // elite circle-drop then expanding shockwave attacks
-let acuteClones=[]; // acute normal-attack dash clones
+let acuteClones=[]; // acute normal-attack dash clones / slash traces
 let acuteUltMode={active:false,charges:0,timerMs:0};
 let acuteUltDash=null; // active acute ult dash movement
 let gridOff=0;
@@ -869,8 +869,16 @@ function fireAcutePrimary(x,y){
   const edges=[[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]];
   edges.forEach(([a,b])=>{
     const dir=Math.atan2(b.y-a.y,b.x-a.x);
-    acuteClones.push({x:P.x,y:P.y,vx:Math.cos(dir)*10,vy:Math.sin(dir)*10,life:26,size:12,mult:P.dmgMult*1.05,hitSet:new Set()});
+    const len=170;
+    const tx=P.x+Math.cos(dir)*len;
+    const ty=P.y+Math.sin(dir)*len;
+    const hitSet=new Set();
+    // Immediate slash hit so attack always feels responsive
+    hitLineSegmentDamage(P.x,P.y,tx,ty,14,24,P.dmgMult*1.05,hitSet,'#ff6080');
+    acuteClones.push({sx:P.x,sy:P.y,tx,ty,t:0,dur:9,life:18,size:13,mult:P.dmgMult*1.05,hitSet});
   });
+  // Brief guide flash on clicked target triangle
+  tAnim2.push({pts:tri,timer:16,max:16,warn:false,crit:false});
   spawnParts(P.x,P.y,'#ff6080',18);
 }
 
@@ -1738,21 +1746,15 @@ function updateForms(){
     }
   }
 
-  // Acute primary clones dash and damage on contact
+  // Acute primary clones: fast linear slash visuals from player position
   acuteClones.forEach(c=>{
-    c.x+=c.vx*timeScale;c.y+=c.vy*timeScale;c.life-=timeScale;
-    enemies.forEach(e=>{
-      if(c.hitSet.has(e)) return;
-      if(Math.hypot(e.x-c.x,e.y-c.y)<e.size+c.size){
-        c.hitSet.add(e);
-        const dmg=Math.floor((22+Math.random()*10)*c.mult);
-        e.hp-=dmg;e.flashTimer=10;
-        dmgNums.push({x:e.x,y:e.y-12,val:dmg,timer:36,vy:-1.1,color:'#ff6080'});
-        spawnParts(e.x,e.y,'#ff6080',5);
-      }
-    });
+    c.t+=timeScale;
+    c.life-=timeScale;
+    const k=Math.min(1,c.t/c.dur);
+    c.x=c.sx+(c.tx-c.sx)*k;
+    c.y=c.sy+(c.ty-c.sy)*k;
   });
-  acuteClones=acuteClones.filter(c=>c.life>0&&c.x>-60&&c.x<W+60&&c.y>-60&&c.y<H+60);
+  acuteClones=acuteClones.filter(c=>c.life>0&&c.t<=c.dur+2);
   killDead();
 
   // Acute ult dash movement + line damage while dashing
@@ -2510,8 +2512,14 @@ function drawEnemies(){
 
 function drawAcuteClones(){
   acuteClones.forEach(c=>{
-    const a=Math.max(0,c.life/26);
-    ctx.save();ctx.globalAlpha=a;ctx.translate(c.x,c.y);
+    const a=Math.max(0,c.life/18);
+    ctx.save();
+    // Bright slash trail
+    ctx.globalAlpha=a*0.45;
+    ctx.strokeStyle='#ff7088';ctx.lineWidth=3;ctx.shadowColor='#ff6080';ctx.shadowBlur=14;
+    ctx.beginPath();ctx.moveTo(c.sx,c.sy);ctx.lineTo(c.x,c.y);ctx.stroke();
+    // Clone head
+    ctx.globalAlpha=a;ctx.translate(c.x,c.y);
     FORMS.acute.draw.call(FORMS.acute,ctx,c.size,fc);
     ctx.restore();
   });

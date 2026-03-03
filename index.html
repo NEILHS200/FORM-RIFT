@@ -76,7 +76,7 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
   margin-top:10px;padding:2px 8px;border-radius:2px;}
 .form-slot.p1{border:1px solid rgba(0,255,204,.4);color:rgba(0,255,204,.6);}
 .form-slot.p2{border:1px solid rgba(255,224,64,.4);color:rgba(255,224,64,.6);}
-.form-select-hint{font-size:10px;color:rgba(200,216,255,.3);letter-spacing:2px;margin-top:6px;}
+.form-select-hint{font-size:10px;color:rgba(200,216,255,.3);letter-spacing:2px;margin-top:6px;min-height:30px;display:flex;align-items:center;justify-content:center;text-align:center;}
 
 /* Narrative cutscene */
 #narrativeScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
@@ -88,7 +88,7 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
 #narrativeSub{font-size:11px;color:rgba(0,255,204,.5);letter-spacing:3px;margin-top:28px;
   text-align:center;animation:pulse 1.5s infinite;}
 
-/* Tab indicator */
+/* Form switch indicator */
 #formHUD{position:absolute;top:12px;left:50%;transform:translateX(-50%);
   display:flex;gap:10px;pointer-events:none;z-index:8;}
 .form-pip{width:32px;height:32px;border:1px solid rgba(0,255,204,.25);
@@ -118,6 +118,13 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
 .dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.15);transition:background .3s;}
 .dot.on{background:var(--pc);box-shadow:0 0 5px var(--pc);}
 .dot.done{background:rgba(0,255,204,.4);}
+
+#spellTutPanel{position:absolute;left:16px;bottom:16px;width:360px;
+  background:rgba(8,12,24,.9);border:1px solid rgba(96,224,255,.35);border-radius:4px;
+  padding:12px 14px;display:none;z-index:9;backdrop-filter:blur(6px);}
+#spellTutTitle{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;color:#60e0ff;margin-bottom:8px;}
+#spellTutBody{font-size:11px;line-height:1.6;color:rgba(210,230,255,.78);}
+#spellTutBody b{color:#9eeeff;}
 
 #blsScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:rgba(3,4,10,.97);backdrop-filter:blur(10px);z-index:12;}
@@ -198,6 +205,10 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
     <div id="tutTxt"></div>
     <div id="tutDots"></div>
   </div>
+  <div id="spellTutPanel">
+    <div id="spellTutTitle">SPELL DRILL · TIME REWIND</div>
+    <div id="spellTutBody"></div>
+  </div>
   <div id="wc"><div id="wcTxt">CLEARED</div></div>
   <div id="eliteEntrance"><div id="eliteName"></div><div id="eliteSub"></div></div>
 
@@ -209,7 +220,7 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
       letter-spacing:2px;text-align:center;line-height:2.4">
       WASD MOVE &nbsp;·&nbsp; MOUSE AIM<br>
       LEFT CLICK × 3 → TRIANGLE ATTACK<br>
-      TAB → SWITCH FORM
+      F → SWITCH FORM
     </div>
   </div>
 
@@ -234,7 +245,7 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
       <canvas id="formPipC0" width="28" height="28"></canvas>
     </div>
     <div style="font-family:Orbitron,monospace;font-size:8px;color:rgba(0,255,204,.3);
-      align-self:center;letter-spacing:1px">TAB</div>
+      align-self:center;letter-spacing:1px">F</div>
     <div class="form-pip" id="formPip1">
       <canvas id="formPipC1" width="28" height="28"></canvas>
       <div id="tabCD" style="transform:scaleX(0)"></div>
@@ -267,6 +278,7 @@ const C=document.getElementById('c'),ctx=C.getContext('2d');
 const W=900,H=600;
 let gs='title',keys={},mouse={x:W/2,y:H/2};
 let score=0,fc=0,stage=1,spawnedAll=false;
+const PRACTICE_GATE={x:760,y:520,r:56};
 
 // ── Player ───────────────────────────────────────────────
 // ── Form Definitions ────────────────────────────────────
@@ -274,7 +286,8 @@ const FORMS={
   equilateral:{
     id:'equilateral',name:'EQUILATERAL',role:'BALANCED',
     color:'#00ffcc',size:18,speed:3.2,dmgMult:1.0,
-    desc:'Versatile fighter. Click to fire triangle projectiles.',
+    desc:'Classic triangle-draw fighter with balanced stats.',
+    attackGuide:'Attack: Click 3 points to draw a damage triangle. Ultimate: Right-click at full ULT to fire a triple fan burst.',
     icon:'▲',
     draw(ctx,s,fc){
       const col=this.color;
@@ -287,7 +300,8 @@ const FORMS={
   acute:{
     id:'acute',name:'ACUTE',role:'ASSASSIN',
     color:'#ff4060',size:16,speed:4.2,dmgMult:1.4,
-    desc:'Fast & deadly. Auto-lunges at nearest enemy.',
+    desc:'Dash assassin. Click to spawn edge-dash clones from your position.',
+    attackGuide:'Attack: A larger ghost equilateral appears at your cursor. Each click traces the 3 edges clockwise once, with damage synced to the edge-trace animation (costs EN). Ultimate: At full ULT, right-click starts a 10s window with 3 dash casts.',
     icon:'◈',
     draw(ctx,s,fc){
       const col=this.color;
@@ -300,7 +314,8 @@ const FORMS={
   obtuse:{
     id:'obtuse',name:'OBTUSE',role:'GUARDIAN',
     color:'#4080ff',size:22,speed:2.2,dmgMult:0.7,
-    desc:'Wide & resilient. Deflects bullets. More HP.',
+    desc:'Front-guard tank with bullet deflection and bonus max HP.',
+    attackGuide:'Attack: Click 3 points to draw a damage triangle. Passive: Deflects bullets from the front face. Ultimate: Right-click at full ULT to fire a triple fan burst.',
     icon:'◭',
     draw(ctx,s,fc){
       const col=this.color;
@@ -313,7 +328,8 @@ const FORMS={
   right:{
     id:'right',name:'RIGHT ANGLE',role:'PHANTOM',
     color:'#c080ff',size:18,speed:3.5,dmgMult:1.1,
-    desc:'Dash-blink on Tab. Leaves afterimage decoys.',
+    desc:'Phantom skirmisher. F swap blink leaves afterimage decoys.',
+    attackGuide:'Attack: Click 3 points to draw a damage triangle. Passive: Form-swap blink on F. Ultimate: Right-click at full ULT to fire a triple fan burst.',
     icon:'◿',
     draw(ctx,s,fc){
       const col=this.color;
@@ -359,6 +375,10 @@ let tPts=[],tAnim=null,tAnim2=[],triProjectiles=[],dmgNums=[];
 let triHazards=[];  // lingering triangle burn+slow zones from elite skill
 let explosions=[];  // dash-bomber explosion rings
 let eliteShieldCircle=null;
+let eliteRings=[]; // elite circle-drop then expanding shockwave attacks
+let acuteClones=[]; // acute normal-attack dash clones / slash traces
+let acuteUltMode={active:false,charges:0,timerMs:0};
+let acuteUltDash=null; // active acute ult dash movement
 let gridOff=0;
 
 // ── Spell System ─────────────────────────────────────────────
@@ -385,6 +405,10 @@ let spellKnown=new Set();   // spells the player has learned
 let activeSpell=null;       // currently equipped spell (only 1 at a time)
 let reviveTokens=0;         // DY easter egg reward
 let spellCtx=null;          // 2D context for spell canvas
+const REWIND_MS=5000;        // rewind 5 seconds
+let rewindPlayback=null;     // {frames,idx,timer,stepMs,targetSnap}
+let spellTrainingActive=false;
+let spellTrainingDone=false;
 
 // ── Boss Quadrant State ──────────────────────────────────────
 let bossQuadrant=1;        // 1-4 current quadrant
@@ -403,11 +427,12 @@ let bossSliceWarnings=[];  // mirror-slice warning lines
 const TUTS=[
   {t:'MOVE',     tx:'Use <b>WASD</b> to move your triangle form.',                                          c:()=>pMoved>=80},
   {t:'AIM',      tx:'Move the <b>mouse</b> to rotate toward enemies.',                                      c:()=>mMoved>=60},
+  {t:'SWITCH',   tx:'Press <b>F</b> to switch forms. (If both slots use the same form, switching is disabled.)', c:()=>swapUsedInTut||equippedForms[0]===equippedForms[1]},
   {t:'ATTACK',   tx:'<b>Click 3 points</b> to draw a triangle zone — enemies inside take damage.',          c:()=>atkUsed>=1},
   {t:'ULTIMATE', tx:'Your <b>Ultimate</b> is fully charged! <b>Right-click</b> to unleash it now.',         c:()=>ultUsedInTut},
   {t:'CLEAR',    tx:'Enemies incoming! <b>Destroy them all</b> to clear the stage.',                        c:()=>enemies.length===0&&spawnedAll},
 ];
-let tutStep=0,pMoved=0,mMoved=0,atkUsed=0,ultUsedInTut=false;
+let tutStep=0,pMoved=0,mMoved=0,swapUsedInTut=false,atkUsed=0,ultUsedInTut=false;
 
 // ── Stage definitions ─────────────────────────────────────
 const STAGES=[
@@ -430,7 +455,7 @@ function makeEnemy(type,x,y){
     ranged:{hp:28, maxHp:28, size:11,speed:.55, color:'#ff80a0',reward:120,shootCd:180},
     fast:  {hp:20, maxHp:20, size:9, speed:2.3, color:'#ff6020',reward:150},
     tank:  {hp:100,maxHp:100,size:21,speed:.42, color:'#cc2040',reward:220},
-    elite_triangle:{hp:350,maxHp:350,size:28,speed:.7,color:'#ff8060',reward:600,
+    elite_triangle:{hp:700,maxHp:700,size:28,speed:.7,color:'#ff8060',reward:600,
       skillTimer:0,skillInterval:220,skillIndex:0},
     boss:  {hp:900,maxHp:900,size:36,speed:.5, color:'#ff4040',reward:2000,
       skillTimer:0,skillInterval:160},
@@ -507,7 +532,7 @@ function updateBBar(){
 document.addEventListener('keydown',e=>{
   keys[e.key.toLowerCase()]=true;
   if(e.key.toLowerCase()==='e'&&!e.repeat) startECharge();
-  if(e.key==='Tab'){e.preventDefault();trySwapForm();}
+  if(e.key.toLowerCase()==='f'&&!e.repeat){e.preventDefault();if(trySwapForm()&&gs==='tutorial')swapUsedInTut=true;}
 });
 document.addEventListener('keyup',e=>{
   keys[e.key.toLowerCase()]=false;
@@ -515,7 +540,7 @@ document.addEventListener('keyup',e=>{
 });
 C.addEventListener('mousemove',e=>{
   const r=C.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;
-  if(['tutorial','playing'].includes(gs))mMoved++;
+  if(['tutorial','playing','practice'].includes(gs))mMoved++;
 });
 // Spell canvas: press-and-drag to draw, release to recognise
 let spellDrawing=false;
@@ -564,24 +589,59 @@ document.getElementById('spellCanvas').addEventListener('contextmenu',e=>{
   }
 });
 C.addEventListener('click',e=>{
-  if(!['tutorial','playing'].includes(gs))return;
-  const r=C.getBoundingClientRect();addTPoint(e.clientX-r.left,e.clientY-r.top);
+  if(!['tutorial','playing','practice'].includes(gs))return;
+  const r=C.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  if(currentForm().id==='acute'){
+    fireAcutePrimary(x,y);
+    return;
+  }
+  addTPoint(x,y);
 });
 C.addEventListener('contextmenu',e=>{
   e.preventDefault();
-  if(!['tutorial','playing'].includes(gs))return;
-  // Ult fires when gauge full, otherwise fall back to shield
+  if(!['tutorial','playing','practice'].includes(gs))return;
+  const r=C.getBoundingClientRect();
+  const tx=e.clientX-r.left,ty=e.clientY-r.top;
+
+  if(currentForm().id==='acute'){
+    // First press on full ULT starts 10s / 3-cast window and fires immediately
+    if(!acuteUltMode.active && P.ult>=P.maxUlt){
+      P.ult=0;updateUltHUD();
+      acuteUltMode={active:true,charges:3,timerMs:10000};
+      showSpellFlash('ACUTE ULT  ·  3 DASHES / 10s','#ff7088');
+    }
+
+    if(acuteUltMode.active){
+      if(acuteUltDash){
+        showSpellFlash('DASH IN PROGRESS','#ff90a0');
+        return;
+      }
+      if(acuteUltMode.charges>0){
+        fireAcuteUltDash(tx,ty);
+        acuteUltMode.charges--;
+        if(acuteUltMode.charges<=0){
+          acuteUltMode.active=false;acuteUltMode.timerMs=0;
+          showSpellFlash('ACUTE ULT ENDED','#ff7088');
+        }
+        if(gs==='tutorial') ultUsedInTut=true;
+        return;
+      }
+    }
+
+    showSpellFlash('ULT NOT READY','#80c0ff');
+    return;
+  }
+
+  // Non-acute forms: only cast ult when gauge is full
   if(P.ult>=P.maxUlt){
     P.ult=0;updateUltHUD();
     fireUlt();
     if(gs==='tutorial') ultUsedInTut=true;
     return;
   }
-  if(P.en>=30){
-    P.shield=Math.min(P.maxShield||50,P.shield+50);
-    if(!P.maxShield)P.maxShield=50;
-    P.en-=30;spawnParts(P.x,P.y,'#60a0ff',20);
-  }
+
+  showSpellFlash('ULT NOT READY','#80c0ff');
 });
 document.getElementById('startBtn').addEventListener('click',()=>{
   // Show form select screen instead of jumping straight to game
@@ -605,6 +665,7 @@ function buildFormSelectUI(){
     const nameEl=document.createElement('div');nameEl.className='form-name';nameEl.innerText=f.name;
     const roleEl=document.createElement('div');roleEl.className='form-role';roleEl.innerText=f.role;
     const descEl=document.createElement('div');descEl.className='form-desc';descEl.innerText=f.desc;
+    card.title=f.attackGuide||f.desc;
 
     // Canvas preview — append AFTER text so it sits on top visually
     const cvs=document.createElement('canvas');
@@ -617,6 +678,13 @@ function buildFormSelectUI(){
     card.appendChild(descEl);
 
     cvs.dataset.formId=f.id;
+
+    card.addEventListener('mouseenter',()=>{hint.innerText=(f.attackGuide||f.desc);});
+    card.addEventListener('mouseleave',()=>{
+      if(sel1&&sel2) hint.innerText='Ready! Press BEGIN to start.';
+      else if(sel1) hint.innerText='Now click to select SECONDARY form';
+      else hint.innerText='Click to select PRIMARY form';
+    });
 
     card.addEventListener('click',()=>{
       if(!sel1||sel1===f.id){
@@ -671,7 +739,7 @@ function buildFormSelectUI(){
     equippedForms=[sel1,sel2];
     activeFormIdx=0;
     document.getElementById('formSelectScreen').classList.add('hidden');
-    startGame();
+    startPracticeStage();
   };
 }
 document.getElementById('restartBtn').addEventListener('click',()=>{
@@ -687,6 +755,48 @@ document.getElementById('playAgainBtn').addEventListener('click',()=>{
 });
 
 // ── Game init ──────────────────────────────────────────────
+function startPracticeStage(){
+  score=0;fc=0;stage=1;spawnedAll=false;
+  spellState='off';spellCharge=0;spellTimer=0;spellCooldown=0;
+  spellStroke=[];spellStrokes=[];spellResult=null;spellFlash=null;activeSpell=null;
+  timeScale=1.0;STATE_HISTORY.length=0;reviveTokens=0;
+  document.getElementById('spellOverlay').style.opacity='0';
+  document.getElementById('spellCanvas').style.display='none';
+  document.getElementById('spellHUD').style.display='none';
+  updateChargeRing(0);updateSpellCD();updateReviveHUD();
+  activeFormIdx=0;tabCooldownMs=0;phantomDecoys=[];
+  applyFormStats();
+  const obtuse=currentForm().id==='obtuse';
+  Object.assign(P,{x:W/2,y:H/2,hp:obtuse?130:100,maxHp:obtuse?130:100,shield:0,maxShield:0,
+    en:100,maxEn:100,enRegen:.18,ult:100,maxUlt:100,invincible:0,trail:[],
+    speed:currentForm().speed,dmgMult:currentForm().dmgMult,size:currentForm().size});
+  updateFormHUD();
+  const ultRowEl=document.getElementById('ultRow');if(ultRowEl)ultRowEl.style.display='flex';
+  updateUltHUD();
+  activeBlessings.clear();
+  enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
+  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;
+  tutStep=0;pMoved=0;mMoved=0;swapUsedInTut=false;atkUsed=0;ultUsedInTut=false;
+  ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('narrativeScreen').classList.remove('show');
+  document.getElementById('blsScreen').classList.add('hidden');
+  document.getElementById('blessingBar').innerHTML='';
+  document.getElementById('tutPanel').style.display='none';
+  document.getElementById('spellTutPanel').style.display='none';
+  (document.getElementById('shieldRow')||{style:{}}).style.display='none';
+  spellTrainingActive=false;spellTrainingDone=false;
+  document.getElementById('stageLbl').innerText='PRACTICE';
+
+  const dummy=makeEnemy('tank',W/2,170);
+  dummy.practiceDummy=true;
+  dummy.hp=260;dummy.maxHp=260;dummy.speed=0;dummy.reward=0;dummy.color='#ff9090';
+  enemies=[dummy];
+
+  gs='practice';
+  showSpellFlash('PRACTICE MODE  ·  MOVE TO THE GLOWING GATE (BOTTOM-RIGHT) TO START RUN','#80e0ff');
+  updateFormHUD();
+}
+
 function startGame(){
   score=0;fc=0;stage=1;spawnedAll=false;
   spellState='off';spellCharge=0;spellTimer=0;spellCooldown=0;
@@ -707,8 +817,8 @@ function startGame(){
   updateUltHUD();
   activeBlessings.clear();
   enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
-  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;
-  tutStep=0;pMoved=0;mMoved=0;atkUsed=0;ultUsedInTut=false;
+  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;
+  tutStep=0;pMoved=0;mMoved=0;swapUsedInTut=false;atkUsed=0;ultUsedInTut=false;
   ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('narrativeScreen').classList.remove('show');
   updateFormHUD();
@@ -717,6 +827,8 @@ function startGame(){
   (document.getElementById('shieldRow')||{style:{}}).style.display='none';
   document.getElementById('stageLbl').innerText='STAGE 1';
   document.getElementById('tutPanel').style.display='block';
+  document.getElementById('spellTutPanel').style.display='none';
+  spellTrainingActive=false;spellTrainingDone=false;
   gs='tutorial';updateTutUI();
 }
 
@@ -735,7 +847,7 @@ function updateTutUI(){
 function advanceTut(){
   tutStep++;
   if(tutStep>=TUTS.length){document.getElementById('tutPanel').style.display='none';gs='playing';spawnStage(1);return;}
-  if(tutStep===4)spawnStage(1); // CLEAR step — spawn enemies now
+  if(tutStep===5)spawnStage(1); // CLEAR step — spawn enemies now
   updateTutUI();
 }
 
@@ -760,8 +872,8 @@ function spawnStage(s){
     showEliteAnim('ROUNDED TRIANGLE','STAGE 5 ELITE');
     setTimeout(()=>{
       enemies.push(makeEnemy('elite_triangle',W/2,110));
-      enemies.push(makeEnemy('melee',160,160));
-      enemies.push(makeEnemy('melee',740,160));
+      enemies.push(makeEnemy('fast',160,160));
+      enemies.push(makeEnemy('fast',740,160));
       spawnedAll=true;
     },2200);
     return;
@@ -794,6 +906,61 @@ function showEliteAnim(name,sub){
 }
 
 // ── Attack ─────────────────────────────────────────────────
+function getAcuteGuideTri(x,y,size=84){
+  return [0,1,2].map(i=>({x:x+Math.cos(-Math.PI/2+i*Math.PI*2/3)*size,y:y+Math.sin(-Math.PI/2+i*Math.PI*2/3)*size}));
+}
+
+function fireAcutePrimary(x,y){
+  const cost=20;
+  if(P.en<cost){
+    const bar=document.getElementById('enFill');
+    bar.style.background='#ff4060';
+    setTimeout(()=>{bar.style.background='';},350);
+    return;
+  }
+  atkUsed++;
+  P.en=Math.max(0,P.en-cost);
+  const tri=getAcuteGuideTri(x,y,84);
+  // One clockwise full loop around cursor triangle, damage synced with trace motion
+  acuteClones.push({
+    pts:tri,edge:0,t:0,speed:0.18,done:false,
+    x:tri[0].x,y:tri[0].y,px:tri[0].x,py:tri[0].y,
+    size:12,mult:P.dmgMult*1.05,hitSet:new Set(),life:26
+  });
+  tAnim2.push({pts:tri,timer:20,max:20,warn:false,crit:false});
+  spawnParts(x,y,'#ff6080',18);
+}
+
+function fireAcuteUltDash(tx,ty){
+  const sx=P.x,sy=P.y;
+  const dx=tx-sx,dy=ty-sy;
+  const dist=Math.hypot(dx,dy);
+  if(dist<6) return;
+  acuteUltDash={sx,sy,tx,ty,t:0,dur:11,hitSet:new Set()};
+  P.invincible=Math.max(P.invincible,60);
+  spawnParts(P.x,P.y,'#ff4060',24);
+}
+
+function hitLineSegmentDamage(ax,ay,bx,by,thickness,baseDmg,mult,hitSet,color){
+  const abx=bx-ax,aby=by-ay;
+  const ab2=abx*abx+aby*aby||1;
+  enemies.forEach(e=>{
+    if(hitSet&&hitSet.has(e)) return;
+    const apx=e.x-ax,apy=e.y-ay;
+    let t=(apx*abx+apy*aby)/ab2; t=Math.max(0,Math.min(1,t));
+    const cx=ax+abx*t,cy=ay+aby*t;
+    if(Math.hypot(e.x-cx,e.y-cy)<=thickness+e.size){
+      const dmg=Math.floor((baseDmg+Math.random()*8)*mult);
+      e.hp-=dmg;e.flashTimer=12;
+      if(hitSet) hitSet.add(e);
+      dmgNums.push({x:e.x,y:e.y-12,val:dmg,timer:38,vy:-1.2,color});
+      if(P.ult<P.maxUlt){P.ult=Math.min(P.maxUlt,P.ult+6);updateUltHUD();}
+      spawnParts(e.x,e.y,color,6);
+    }
+  });
+  killDead();
+}
+
 function addTPoint(x,y){
   if(tAnim)return;
   tPts.push({x,y});
@@ -951,6 +1118,13 @@ function ptInTri(px,py,a,b,c){
 function killDead(){
   enemies=enemies.filter(e=>{
     if(e.hp>0)return true;
+    if(e.practiceDummy){
+      e.hp=e.maxHp;
+      e.flashTimer=14;
+      spawnParts(e.x,e.y,'#80e0ff',16);
+      showSpellFlash('PRACTICE DUMMY RESET','#80e0ff');
+      return true;
+    }
     score+=e.reward||100;
     spawnParts(e.x,e.y,e.color,18);
     if(hasB('burn')||hasB('burn_slow')||hasB('burn_dmg'))
@@ -1004,7 +1178,7 @@ function doEliteSkill(e){
       const dist=40+Math.random()*50;
       const cx=Math.max(70,Math.min(W-70, P.x+Math.cos(angle)*dist));
       const cy=Math.max(60,Math.min(H-60, P.y+Math.sin(angle)*dist));
-      const r=70+Math.random()*30;
+      const r=(70+Math.random()*30)*2;
       const tri=[0,1,2].map(i=>({
         x:cx+r*Math.cos(Math.PI/2+i*Math.PI*2/3),
         y:cy+r*Math.sin(Math.PI/2+i*Math.PI*2/3)
@@ -1021,6 +1195,15 @@ function doEliteSkill(e){
         }, Math.round(WARN*1000/60));
       }, k*320);
     }
+
+    // Follow-up: circle drops near player, then expands to full-map shockwave
+    setTimeout(()=>{
+      const ang=Math.random()*Math.PI*2;
+      const dist=70+Math.random()*90;
+      const cx=Math.max(80,Math.min(W-80, P.x+Math.cos(ang)*dist));
+      const cy=Math.max(80,Math.min(H-80, P.y+Math.sin(ang)*dist));
+      eliteRings.push({x:cx,y:cy,r:34,maxR:Math.hypot(W,H),phase:'drop',timer:28,hitDrop:false,hitExpand:false});
+    }, 1200);
   } else if(sk===1){
     // Shield circle + slow zone
     eliteShieldCircle={x:e.x,y:e.y,r:110,timer:280};
@@ -1290,7 +1473,7 @@ function initSpellCanvas(){
 }
 
 function startECharge(){
-  if(!['tutorial','playing'].includes(gs))return;
+  if(!['tutorial','playing','practice'].includes(gs))return;
   if(spellState==='off'||spellState==='cooldown') spellState='charging';
 }
 function cancelECharge(){
@@ -1421,8 +1604,9 @@ function drawAllStrokes(){ redrawSpellCanvas(); }
 // ── Activate spell effect ────────────────────────────────
 function activateSpell(name){
   if(name==='rewind'){
-    showSpellFlash('⏪  TIME REWIND  ⏪','#60e0ff');
+    showSpellFlash('⏪  TIME REWIND  ·  5s  ⏪','#60e0ff');
     rewindGameState();
+    if(spellTrainingActive) finishSpellTraining();
   } else if(name==='mobius'){
     showSpellFlash('∞  INVINCIBLE + ULT CHARGED  ∞','#c0ff60');
     P.invincible=300;P.ult=P.maxUlt;updateUltHUD();
@@ -1457,14 +1641,9 @@ function saveGameState(){
     eBullets:eBullets.map(b=>({...b})),
     burnMarks:burnMarks.map(b=>({...b})),
     px:P.x,py:P.y,php:P.hp,pmaxHp:P.maxHp,pen:P.en,psh:P.shield,pult:P.ult});
-  if(STATE_HISTORY.length>200) STATE_HISTORY.shift(); // 保存~20s历史
+  if(STATE_HISTORY.length>200) STATE_HISTORY.shift(); // keep enough snapshots for rewind window
 }
-function rewindGameState(){
-  const targetTs=performance.now()-20000; // 真实20秒前
-  const snap=STATE_HISTORY.filter(s=>s.ts&&s.ts<=targetTs).pop()
-           ||STATE_HISTORY[0]; // 找最近的不超过20秒前的快照
-  if(!snap) return;
-  // 完整恢复所有游戏状态
+function applySnapshotState(snap,final=false){
   enemies=snap.enemies.map(e=>({...e}));
   eBullets=snap.eBullets.map(b=>({...b}));
   burnMarks=snap.burnMarks?snap.burnMarks.map(b=>({...b})):[];
@@ -1472,11 +1651,30 @@ function rewindGameState(){
   P.hp=snap.php;P.maxHp=snap.pmaxHp;
   P.en=snap.pen;P.shield=snap.psh;
   if(snap.pult!==undefined){P.ult=snap.pult;updateUltHUD();}
-  P.invincible=80; // 短暂无敌缓冲，防止回溯后立刻死
-  STATE_HISTORY.length=0;
-  // 蓝色粒子爆发 + 时间回溯视觉
-  for(let i=0;i<80;i++) spawnParts(P.x,P.y,'#60e0ff',1);
-  spawnParts(W/2,H/2,'#60e0ff',60);
+  if(final){
+    P.invincible=80; // brief invulnerability buffer to prevent instant re-death
+    STATE_HISTORY.length=0;
+    for(let i=0;i<80;i++) spawnParts(P.x,P.y,'#60e0ff',1);
+    spawnParts(W/2,H/2,'#60e0ff',60);
+  }
+}
+
+function rewindGameState(){
+  const now=performance.now();
+  const targetTs=now-REWIND_MS; // 5 seconds ago
+  const targetSnap=STATE_HISTORY.filter(s=>s.ts&&s.ts<=targetTs).pop()
+           ||STATE_HISTORY[0]; // nearest snapshot not later than rewind target
+  if(!targetSnap) return;
+
+  // Build visible rewind frames between target and now
+  const frames=STATE_HISTORY.filter(s=>s.ts&&s.ts>=targetSnap.ts&&s.ts<=now);
+  if(frames.length<2){
+    applySnapshotState(targetSnap,true);
+    return;
+  }
+
+  rewindPlayback={frames,idx:frames.length-1,timer:0,stepMs:36,targetSnap};
+  showSpellFlash('⏪  REWINDING...','#60e0ff');
 }
 
 // ── Spell cooldown HUD ───────────────────────────────────
@@ -1499,7 +1697,7 @@ function updateSpellCD(){
 
 // ── Update spell system ──────────────────────────────────
 function updateSpell(){
-  if(!['tutorial','playing'].includes(gs)) return;
+  if(!['tutorial','playing','practice'].includes(gs)) return;
   saveGameState();
   const dt=(window._realDt||1)*16.667; // real ms this frame
   if(spellState==='charging'){
@@ -1547,9 +1745,9 @@ function learnSpell(name){
 
 // ── Form Switch ─────────────────────────────────────────────
 function trySwapForm(){
-  if(!['tutorial','playing'].includes(gs)) return;
-  if(tabCooldownMs>0) return; // still cooling down
-  if(equippedForms[0]===equippedForms[1]) return; // same form
+  if(!['tutorial','playing','practice'].includes(gs)) return false;
+  if(tabCooldownMs>0) return false; // still cooling down
+  if(equippedForms[0]===equippedForms[1]) return false; // same form
 
   // Phantom form: dash-blink on swap
   if(currentForm().id==='right'){
@@ -1566,6 +1764,7 @@ function trySwapForm(){
   applyFormStats();
   spawnParts(P.x,P.y,currentForm().color,20);
   updateFormHUD();
+  return true;
 }
 
 function spawnPhantomDecoy(){
@@ -1575,7 +1774,7 @@ function spawnPhantomDecoy(){
 function updateFormHUD(){
   const hud=document.getElementById('formHUD');
   if(!hud) return;
-  hud.style.display=['tutorial','playing'].includes(gs)?'flex':'none';
+  hud.style.display=['tutorial','playing','practice'].includes(gs)?'flex':'none';
   [0,1].forEach(i=>{
     const pip=document.getElementById('formPip'+i);
     const cvs=document.getElementById('formPipC'+i);
@@ -1596,32 +1795,57 @@ function updateFormHUD(){
 }
 
 function updateForms(){
-  if(!['tutorial','playing'].includes(gs)) return;
+  if(!['tutorial','playing','practice'].includes(gs)) return;
   const dt=(window._realDt||1)*16.667;
+  const ts=timeScale*(window._realDt||1);
+
+  if(acuteUltMode.active){
+    acuteUltMode.timerMs-=dt;
+    if(acuteUltMode.timerMs<=0){
+      acuteUltMode.active=false;acuteUltMode.charges=0;acuteUltMode.timerMs=0;
+      showSpellFlash('ACUTE ULT EXPIRED','#ff7088');
+    }
+  }
   if(tabCooldownMs>0){
     tabCooldownMs=Math.max(0,tabCooldownMs-dt);
     updateFormHUD();
   }
 
-  // Acute: auto-lunge toward nearest enemy
-  if(currentForm().id==='acute'){
-    const nearest=enemies.filter(e=>e.hp>0)
-      .sort((a,b)=>Math.hypot(P.x-a.x,P.y-a.y)-Math.hypot(P.x-b.x,P.y-b.y))[0];
-    if(nearest){
-      const dist=Math.hypot(nearest.x-P.x,nearest.y-P.y);
-      if(dist<120){
-        const ang=Math.atan2(nearest.y-P.y,nearest.x-P.x);
-        P.x+=Math.cos(ang)*2.5*timeScale;
-        P.y+=Math.sin(ang)*2.5*timeScale;
-        // Deal contact damage on close
-        if(dist<P.size+nearest.size+4&&nearest.hp>0&&P.invincible<=0){
-          const dmg=Math.floor(18*P.dmgMult);
-          nearest.hp-=dmg;nearest.flashTimer=10;
-          dmgNums.push({x:nearest.x,y:nearest.y-10,val:dmg,vy:-1.2,timer:40,crit:false});
-          if(nearest.hp<=0) killDead();
-          P.invincible=20; // brief iframes after lunge hit
-        }
+  // Acute primary: clockwise edge-trace once, with damage synced to trace movement
+  acuteClones.forEach(c=>{
+    if(c.done){c.life-=ts;return;}
+    c.px=c.x;c.py=c.y;
+    c.t+=c.speed*ts;
+    while(c.t>=1&&!c.done){
+      c.t-=1;
+      c.edge++;
+      if(c.edge>=3){
+        c.edge=2;c.t=1;c.done=true;
+        break;
       }
+    }
+    const a=c.pts[c.edge],b=c.pts[(c.edge+1)%3];
+    c.x=a.x+(b.x-a.x)*c.t;
+    c.y=a.y+(b.y-a.y)*c.t;
+    hitLineSegmentDamage(c.px,c.py,c.x,c.y,14,24,c.mult,c.hitSet,'#ff6080');
+    c.life-=ts;
+    if(c.done&&c.life<8) c.life=8;
+  });
+  acuteClones=acuteClones.filter(c=>c.life>0&&!(!c.done&&c.edge>=3));
+  killDead();
+
+  // Acute ult dash movement + line damage while dashing
+  if(acuteUltDash){
+    const prevx=P.x,prevy=P.y;
+    acuteUltDash.t+=ts;
+    const k=Math.min(1,acuteUltDash.t/acuteUltDash.dur);
+    P.x=acuteUltDash.sx+(acuteUltDash.tx-acuteUltDash.sx)*k;
+    P.y=acuteUltDash.sy+(acuteUltDash.ty-acuteUltDash.sy)*k;
+    P.invincible=Math.max(P.invincible,60);
+    hitLineSegmentDamage(prevx,prevy,P.x,P.y,18,34,P.dmgMult*1.25,acuteUltDash.hitSet,'#ff4060');
+    if(k>=1){
+      spawnParts(P.x,P.y,'#ff4060',24);
+      acuteUltDash=null;
     }
   }
 
@@ -1679,12 +1903,40 @@ function drawPhantomDecoys(){
   });
 }
 
+function canGuardEliteShockwave(ring){
+  if(currentForm().id!=='obtuse') return false;
+  const dx=ring.x-P.x,dy=ring.y-P.y;
+  const len=Math.hypot(dx,dy)||1;
+  const tx=dx/len,ty=dy/len;
+  const fx=Math.cos(P.angle),fy=Math.sin(P.angle);
+  return fx*tx+fy*ty>0.35;
+}
+
 // ── Update ─────────────────────────────────────────────────
 function update(){
   fc++;
+
+  // Rewind playback: show step-by-step rollback before final state lands
+  if(rewindPlayback){
+    const dt=(window._realDt||1)*16.667;
+    rewindPlayback.timer+=dt;
+    while(rewindPlayback.timer>=rewindPlayback.stepMs&&rewindPlayback.idx>=0){
+      rewindPlayback.timer-=rewindPlayback.stepMs;
+      applySnapshotState(rewindPlayback.frames[rewindPlayback.idx],false);
+      rewindPlayback.idx--;
+    }
+    if(rewindPlayback.idx<0){
+      applySnapshotState(rewindPlayback.targetSnap,true);
+      rewindPlayback=null;
+    }
+    return;
+  }
+
   updateSpell();
   updateForms();
-  if(!['tutorial','playing'].includes(gs))return;
+  if(!['tutorial','playing','practice'].includes(gs))return;
+
+  const ts=timeScale*(window._realDt||1);
 
   // Player movement — quadrant flips axes during boss fight
   let dx=0,dy=0;
@@ -1703,25 +1955,25 @@ function update(){
   const spd=inHazard?P.speed*.35:inSlowZone?P.speed*.4:P.speed;
   if(dx||dy){
     const l=Math.hypot(dx,dy);
-    P.x+=dx/l*spd;P.y+=dy/l*spd;pMoved++;
+    P.x+=dx/l*spd*ts;P.y+=dy/l*spd*ts;pMoved+=ts;
     P.trail.push({x:P.x,y:P.y,life:1});
   }
   P.x=Math.max(20,Math.min(W-20,P.x));
   P.y=Math.max(20,Math.min(H-20,P.y));
-  P.trail=P.trail.filter(t=>{t.life-=.055*timeScale;return t.life>0;});
+  P.trail=P.trail.filter(t=>{t.life-=.055*ts;return t.life>0;});
   P.angle=Math.atan2(mouse.y-P.y,mouse.x-P.x);
-  if(P.en<P.maxEn)P.en+=P.enRegen;
-  if(P.invincible>0)P.invincible-=timeScale;
+  if(P.en<P.maxEn)P.en=Math.min(P.maxEn,P.en+P.enRegen*ts);
+  if(P.invincible>0)P.invincible-=ts;
 
   // Enemies
   enemies.forEach(e=>{
     if(e.hp<=0)return; // skip dead enemies — killDead() will remove them
-    e.spinAngle+=.018*timeScale;
+    e.spinAngle+=.018*ts;
     if(e.shielded&&e.shieldHp<=0)e.shielded=false;
 
     // Elite skill timing
     if(e.type==='elite_triangle'){
-      e.skillTimer+=timeScale;
+      e.skillTimer+=ts;
       if(e.skillTimer>=e.skillInterval)doEliteSkill(e);
       // Track shield circle to elite pos
       if(eliteShieldCircle){eliteShieldCircle.x=e.x;eliteShieldCircle.y=e.y;}
@@ -1741,13 +1993,13 @@ function update(){
       }
 
       // Boss phase timer — triggers countdown then switches
-      bossPhaseTimer+=timeScale;
+      bossPhaseTimer+=ts;
 
       // Start countdown 3s before switch
       if(bossPhaseTimer>=BOSS_PHASE_INTERVAL-BOSS_COUNTDOWN_START && bossCountdown===0){
         bossCountdown=BOSS_COUNTDOWN_START;
       }
-      if(bossCountdown>0) bossCountdown-=timeScale;
+      if(bossCountdown>0) bossCountdown-=ts;
 
       // Switch when timer reaches interval
       if(bossPhaseTimer>=BOSS_PHASE_INTERVAL){
@@ -1766,7 +2018,7 @@ function update(){
 
       // Fire skills (pause during countdown's last 0.5s for tension)
       if(bossCountdown<30){
-        e.skillTimer+=timeScale;
+        e.skillTimer+=ts;
         if(e.skillTimer>=e.skillInterval){
           e.skillTimer=0;
           doBossSkill(e,bossQuadrant);
@@ -1776,23 +2028,27 @@ function update(){
 
     // Boss stays centered; others chase player
     if(e.type!=='boss'){
-      const ang=Math.atan2(P.y-e.y,P.x-e.x);
-      const dist=Math.hypot(P.x-e.x,P.y-e.y);
-      // Dash-bomber in idle keeps a gap — stops ~90px from player
-      if(e.isDashBomber&&e.dashPhase==='idle'&&dist<90){
-        // Orbit: move perpendicular instead of straight in
-        const perpAng=ang+Math.PI/2;
-        e.x+=Math.cos(perpAng)*e.speed*0.6;
-        e.y+=Math.sin(perpAng)*e.speed*0.6;
-      } else if(!(e.isDashBomber&&e.dashPhase==='dashing')){
-        e.x+=Math.cos(ang)*e.speed*timeScale;e.y+=Math.sin(ang)*e.speed*timeScale;
+      if(e.trainingDummy){
+        // training dummy never moves
+      } else {
+        const ang=Math.atan2(P.y-e.y,P.x-e.x);
+        const dist=Math.hypot(P.x-e.x,P.y-e.y);
+        // Dash-bomber in idle keeps a gap — stops ~90px from player
+        if(e.isDashBomber&&e.dashPhase==='idle'&&dist<90){
+          // Orbit: move perpendicular instead of straight in
+          const perpAng=ang+Math.PI/2;
+          e.x+=Math.cos(perpAng)*e.speed*0.6;
+          e.y+=Math.sin(perpAng)*e.speed*0.6;
+        } else if(!(e.isDashBomber&&e.dashPhase==='dashing')){
+          e.x+=Math.cos(ang)*e.speed*ts;e.y+=Math.sin(ang)*e.speed*ts;
+        }
       }
     }
     if(e.flashTimer>0)e.flashTimer--;
 
     // Dash-bomber AI
     if(e.isDashBomber&&e.hp>0){
-      e.dashTimer+=timeScale;
+      e.dashTimer+=ts;
       if(e.dashPhase==='idle'&&e.dashTimer>=e.dashInterval){
         // Begin windup — face player, flicker
         e.dashPhase='windup';
@@ -1801,7 +2057,7 @@ function update(){
         e.dashVx=Math.cos(ang)*12;e.dashVy=Math.sin(ang)*12;
       }
       if(e.dashPhase==='windup'){
-        e.windupTimer-=timeScale;
+        e.windupTimer-=ts;
         e.flashTimer=8; // constant flicker during windup
         if(e.windupTimer<=0){
           e.dashPhase='dashing';
@@ -1820,24 +2076,28 @@ function update(){
           triggerBomberExplosion(e, false);
           return;
         }
-        e.dashTimer+=timeScale;
+        e.dashTimer+=ts;
       }
     }
 
     // Ranged shooting
     if(e.type==='ranged'){
-      e.shootTimer+=timeScale;
+      e.shootTimer+=ts;
       if(e.shootTimer>=(e.shootCd||180)){
         e.shootTimer=0;
-        const ba=Math.atan2(P.y-e.y,P.x-e.x);
-        eBullets.push({x:e.x,y:e.y,vx:Math.cos(ba)*2.2,vy:Math.sin(ba)*2.2,dmg:12,life:1,size:6,color:e.color});
+        if(e.trainingDummy){
+          eBullets.push({x:e.x,y:e.y,vx:e.forwardVx||0,vy:e.forwardVy||3,dmg:10,life:1,size:6,color:e.color});
+        } else {
+          const ba=Math.atan2(P.y-e.y,P.x-e.x);
+          eBullets.push({x:e.x,y:e.y,vx:Math.cos(ba)*2.2,vy:Math.sin(ba)*2.2,dmg:12,life:1,size:6,color:e.color});
+        }
       }
     }
 
     // Contact damage + knockback (prevents sticking)
     if(e.hp<=0)return; // don't process dead enemies
     const contactDist=Math.hypot(P.x-e.x,P.y-e.y);
-    if(contactDist<P.size+e.size){
+    if(contactDist<P.size+e.size&&!e.trainingDummy){
       // Push player away from enemy regardless of invincibility
       const pushAng=Math.atan2(P.y-e.y,P.x-e.x);
       const overlap=P.size+e.size-contactDist;
@@ -1854,7 +2114,7 @@ function update(){
 
   // Enemy bullets
   eBullets.forEach(b=>{
-    b.x+=b.vx*timeScale;b.y+=b.vy*timeScale;b.life-=.007*timeScale;
+    b.x+=b.vx*ts;b.y+=b.vy*ts;b.life-=.007*ts;
     if(Math.hypot(P.x-b.x,P.y-b.y)<P.size+b.size&&P.invincible<=0){takeDmg(b.dmg);b.life=0;}
     if(b.x<-20||b.x>W+20||b.y<-20||b.y>H+20)b.life=0;
   });
@@ -1862,7 +2122,7 @@ function update(){
 
   // Boss lasers: persistent beams that damage player on contact
   bossLasers.forEach(l=>{
-    l.life-=(l.decay||0.006)*timeScale;
+    l.life-=(l.decay||0.006)*ts;
     if(l.active&&P.invincible<=0){
       // Check if player is on the laser line
       if(l.axis==='x'&&Math.abs(P.y-l.pos)<18) takeDmg(1);
@@ -1873,7 +2133,7 @@ function update(){
 
   // Boss slice warnings (become active after warn period)
   bossSliceWarnings.forEach(s=>{
-    s.timer--;
+    s.timer-=ts;
     if(s.timer===0){
       s.active=true;
       // Deal damage to player if caught
@@ -1890,11 +2150,11 @@ function update(){
       }
     }
   });
-  bossSliceWarnings=bossSliceWarnings.filter(s=>{if(!s.active)return s.timer>0;s._st=(s._st||40)-1;return s._st>0;});
+  bossSliceWarnings=bossSliceWarnings.filter(s=>{if(!s.active)return s.timer>0;s._st=(s._st||40)-ts;return s._st>0;});
 
   // Burn marks
   burnMarks.forEach(b=>{
-    b.life-=.0022*timeScale;b.dmgTimer+=timeScale;
+    b.life-=.0022*ts;b.dmgTimer+=ts;
     if(b.dmgTimer%45===0){
       enemies.forEach(e=>{
         if(Math.hypot(e.x-b.x,e.y-b.y)<b.r){
@@ -1910,8 +2170,8 @@ function update(){
 
   // Triangle hazard zones — ptInTri collision = exactly matches visual triangle
   triHazards.forEach(h=>{
-    h.life-=h.decay*timeScale;
-    h.dmgTimer+=timeScale;
+    h.life-=h.decay*ts;
+    h.dmgTimer+=ts;
     const inZone=ptInTri(P.x,P.y,h.pts[0],h.pts[1],h.pts[2]);
     if(inZone){
       h.playerInside=true;
@@ -1926,20 +2186,52 @@ function update(){
   });
   triHazards=triHazards.filter(h=>h.life>0);
 
+  // Elite circle-drop shockwave attack
+  eliteRings.forEach(r=>{
+    if(r.phase==='drop'){
+      r.timer-=ts;
+      if(r.timer<=0){
+        r.phase='expand';
+        r.r=36;
+        spawnParts(r.x,r.y,'#ff9050',36);
+        if(Math.hypot(P.x-r.x,P.y-r.y)<70&&P.invincible<=0){
+          takeDmg(16);
+          dmgNums.push({x:P.x,y:P.y-18,val:16,timer:38,vy:-1.2,color:'#ff9050'});
+        }
+      }
+    } else if(r.phase==='expand'){
+      r.r+=14*ts;
+      const dist=Math.hypot(P.x-r.x,P.y-r.y);
+      const onWave=Math.abs(dist-r.r)<24;
+      if(onWave&&!r.hitExpand&&P.invincible<=0){
+        if(!canGuardEliteShockwave(r)){
+          takeDmg(22);
+          dmgNums.push({x:P.x,y:P.y-18,val:22,timer:42,vy:-1.2,color:'#ff7040'});
+          spawnParts(P.x,P.y,'#ff7040',14);
+        } else {
+          spawnParts(P.x,P.y,'#60a0ff',16);
+        }
+        r.hitExpand=true;
+      }
+      if(r.r>=r.maxR) r.done=true;
+    }
+  });
+  eliteRings=eliteRings.filter(r=>!r.done);
+
   // Explosion rings
   explosions.forEach(ex=>{
     ex.r=ex.maxR*(1-ex.life);
-    ex.life-=ex.decay*timeScale;
+    ex.life-=ex.decay*ts;
   });
   explosions=explosions.filter(ex=>ex.life>0);
 
   // Slow zones
-  slowZones.forEach(z=>z.timer-=timeScale);
+  slowZones.forEach(z=>z.timer-=ts);
   slowZones=slowZones.filter(z=>z.timer>0);
-  if(eliteShieldCircle){eliteShieldCircle.timer-=timeScale;if(eliteShieldCircle.timer<=0)eliteShieldCircle=null;}
+  if(eliteShieldCircle){eliteShieldCircle.timer-=ts;if(eliteShieldCircle.timer<=0)eliteShieldCircle=null;}
 
   // Particles
-  particles.forEach(p=>{p.x+=p.vx*timeScale;p.y+=p.vy*timeScale;p.vx*=(.94**timeScale);p.vy*=(.94**timeScale);p.life-=p.decay*timeScale;});
+  particles.forEach(p=>{p.x+=p.vx*ts;p.y+=p.vy*ts;p.vx*=(.94**ts);p.vy*=(.94**ts);p.life-=p.decay*ts;});
   particles=particles.filter(p=>p.life>0);
 
   // Anims
@@ -1953,11 +2245,11 @@ function update(){
     const cy=(tp.pts[0].y+tp.pts[1].y+tp.pts[2].y)/3;
     tp.trail.push({x:cx,y:cy,life:1});
     if(tp.trail.length>10) tp.trail.shift();
-    tp.trail.forEach(t=>t.life-=0.09*timeScale);
+    tp.trail.forEach(t=>t.life-=0.09*ts);
 
     // Move all vertices
-    tp.pts.forEach(p=>{p.x+=tp.vx*timeScale;p.y+=tp.vy*timeScale;});
-    tp.life-=tp.decay*timeScale;
+    tp.pts.forEach(p=>{p.x+=tp.vx*ts;p.y+=tp.vy*ts;});
+    tp.life-=tp.decay*ts;
 
     // Hit enemies not yet hit by this projectile
     enemies.forEach(e=>{
@@ -1979,7 +2271,7 @@ function update(){
     if(ncx<-150||ncx>W+150||ncy<-150||ncy>H+150) tp.life=0;
   });
   triProjectiles=triProjectiles.filter(tp=>tp.life>0);
-  dmgNums.forEach(d=>{d.y+=d.vy*timeScale;d.timer-=timeScale;});
+  dmgNums.forEach(d=>{d.y+=d.vy*ts;d.timer-=ts;});
   dmgNums=dmgNums.filter(d=>d.timer>0);
 
   // HUD
@@ -2009,17 +2301,74 @@ function update(){
   // Tutorial
   if(gs==='tutorial'&&TUTS[tutStep]&&TUTS[tutStep].c())advanceTut();
 
+  // Practice gate to start real run
+  if(gs==='practice'){
+    if(Math.hypot(P.x-PRACTICE_GATE.x,P.y-PRACTICE_GATE.y)<PRACTICE_GATE.r){
+      startGame();
+      return;
+    }
+  }
+
   // Clear check
-  if(gs==='playing'&&spawnedAll&&enemies.length===0)stageClear();
+  if(gs==='playing'&&!spellTrainingActive&&spawnedAll&&enemies.length===0)stageClear();
 
   if(P.hp<=0){P.hp=0;die();}
-  gridOff=(gridOff+.28*timeScale)%40;
+  gridOff=(gridOff+.28*ts)%40;
 }
 
 function takeDmg(dmg){
   if(P.shield>0){P.shield=Math.max(0,P.shield-dmg);spawnParts(P.x,P.y,'#60a0ff',5);}
   else{P.hp=Math.max(0,P.hp-dmg);spawnParts(P.x,P.y,'#00ffcc',5);}
   P.invincible=42;
+}
+
+function startSpellTraining(){
+  spellTrainingActive=true;
+  spellTrainingDone=false;
+  gs='playing';
+  // reset arena objects but keep progression
+  enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
+  eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;spawnedAll=true;
+  P.x=W/2;P.y=H-120;
+  P.en=P.maxEn;
+  P.ult=Math.min(P.maxUlt,80);
+  updateUltHUD();
+  P.invincible=60;
+
+  // a static target that only fires forward (toward player start lane)
+  const d=makeEnemy('ranged',W/2,130);
+  d.hp=220;d.maxHp=220;d.size=18;d.speed=0;d.reward=0;
+  d.trainingDummy=true;
+  d.shootCd=70;
+  d.forwardVx=0;d.forwardVy=3.1;
+  d.shootTimer=0;
+  enemies.push(d);
+
+  const panel=document.getElementById('spellTutPanel');
+  const body=document.getElementById('spellTutBody');
+  if(panel&&body){
+    body.innerHTML='1) <b>Hold E</b> until cast mode opens — do not release it.<br>'+
+      '2) Keep holding E and use <b>left click</b> to trace the on-screen pattern.<br>'+
+      '3) On success, cast <b>TIME REWIND (5 seconds)</b>.<br>'+
+      'Rewind restores: <b>HP / EN / ULT / your position / enemy positions / bullets and enemy states</b>.';
+    panel.style.display='block';
+  }
+  showSpellFlash('SPELL DRILL STARTED  ·  CAST REWIND ONCE','#60e0ff');
+}
+
+function finishSpellTraining(){
+  if(!spellTrainingActive||spellTrainingDone) return;
+  spellTrainingDone=true;
+  spellTrainingActive=false;
+  const panel=document.getElementById('spellTutPanel');
+  if(panel) panel.style.display='none';
+  enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
+  eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;spawnedAll=false;
+  showSpellFlash('DRILL COMPLETE  ·  REWIND MASTERED','#60ffb0');
+  setTimeout(()=>{
+    document.getElementById('blsScreen').classList.add('hidden');
+    showBlsScreen();
+  },500);
 }
 
 function stageClear(){
@@ -2038,14 +2387,14 @@ function stageClear(){
 }
 
 const NARRATIVE_LINES=[
-  "The elite dissolves...",
-  "But the battle has left you wounded.",
-  "You feel something stir within the geometry—",
-  "a thread of time, coiled and waiting.",
-  "Hold [ E ] to slow the world.",
-  "Trace the pattern. Let time reverse.",
-  "Your wounds, your fallen allies—",
-  "all of it, undone."
+  "The elite dissolves... but a new geometry remains.",
+  "You awaken your first spell: TIME REWIND.",
+  "Next is a live drill. One training target is waiting.",
+  "It does not move, but it can still fire forward.",
+  "Hold [ E ] until cast mode opens — DO NOT release E.",
+  "While still holding E, use LEFT CLICK to trace the on-screen pattern.",
+  "If recognized, you rewind 5 seconds of real battle time.",
+  "Rewind restores HP, EN, ULT, your position, enemy positions, bullets, and enemy states."
 ];
 
 function triggerSpellNarrative(){
@@ -2069,13 +2418,9 @@ function triggerSpellNarrative(){
         screen.classList.remove('show');
         screen.style.pointerEvents='none';
         screen.onclick=null;
-        // Grant rewind spell
+        // Grant rewind spell, then enter a dedicated drill stage
         learnSpell('rewind');
-        // Small delay then show blessing screen
-        setTimeout(()=>{
-          document.getElementById('blsScreen').classList.add('hidden'); // reset first
-          showBlsScreen();
-        }, 500);
+        setTimeout(startSpellTraining, 450);
       };
       return;
     }
@@ -2140,7 +2485,7 @@ function goNextStage(){
   stage++;
   P.x=W/2;P.y=H/2;
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;spawnedAll=false;
+  eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;spawnedAll=false;
   bossQuadrant=1;bossOverview=false;bossPhaseTimer=0;bossCountdown=0;bossLasers=[];bossCages=[];bossSliceWarnings=[];
   gs='playing';spawnStage(stage);
 }
@@ -2151,11 +2496,54 @@ function draw(){
   if(bossOverview&&stage===10){drawBossOverview();return;}
   drawGrid();
   if(stage===10) drawQuadrantOverlay();
-  drawSlowZones();drawBurnMarks();drawTriHazards();drawEliteShield();
-  drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawTriProjectiles();drawTGuide();
+  drawSlowZones();drawBurnMarks();drawTriHazards();drawEliteRings();drawEliteShield();
+  drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawAcuteClones();drawTriProjectiles();drawTGuide();
   drawTrail();drawEnemies();drawPlayer();drawDmgNums();
   if(stage===10) drawQuadrantHUD();
+  if(gs==='practice') drawPracticeGate();
+  if(rewindPlayback) drawRewindPlayback();
   drawSpellFlash();
+}
+
+function drawRewindPlayback(){
+  ctx.save();
+  const t=Math.max(0,Math.min(1,(rewindPlayback.idx+1)/(rewindPlayback.frames.length||1)));
+  ctx.globalAlpha=0.12+0.18*t;
+  ctx.fillStyle='#60e0ff';
+  ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=0.85;
+  ctx.strokeStyle='rgba(120,230,255,.65)';
+  ctx.setLineDash([8,8]);
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(180,240,255,.9)';
+  ctx.font='bold 14px Orbitron';ctx.textAlign='center';
+  ctx.fillText('REWIND PLAYBACK',W/2,46);
+  ctx.font='10px Orbitron';
+  ctx.fillText('TIME ROLLING BACK...',W/2,66);
+  ctx.textAlign='left';
+  ctx.restore();
+}
+
+function drawPracticeGate(){
+  const g=PRACTICE_GATE;
+  const inside=Math.hypot(P.x-g.x,P.y-g.y)<g.r;
+  ctx.save();
+  const pulse=0.75+Math.sin(fc*0.08)*0.25;
+  ctx.globalAlpha=0.18+0.18*pulse;
+  ctx.beginPath();ctx.arc(g.x,g.y,g.r,0,Math.PI*2);
+  ctx.fillStyle=inside?'#80ffb0':'#80e0ff';ctx.fill();
+  ctx.globalAlpha=0.75;
+  ctx.beginPath();ctx.arc(g.x,g.y,g.r*(0.92+0.08*pulse),0,Math.PI*2);
+  ctx.strokeStyle=inside?'#b0ffd0':'#80e0ff';ctx.lineWidth=2.2;ctx.shadowColor=inside?'#b0ffd0':'#80e0ff';ctx.shadowBlur=16;ctx.stroke();
+  ctx.shadowBlur=0;ctx.textAlign='center';ctx.font='10px Orbitron';
+  ctx.fillStyle='rgba(190,240,255,0.95)';
+  ctx.fillText('START RUN ZONE',g.x,g.y+3);
+  ctx.textAlign='left';
+  ctx.restore();
+
+  const hint=document.getElementById('atkHint');
+  if(hint) hint.innerText='PRACTICE DUMMY REGENERATES · WALK INTO GLOWING GATE TO START';
 }
 
 function drawGrid(){
@@ -2269,6 +2657,21 @@ function drawEnemies(){
   });
 }
 
+function drawAcuteClones(){
+  acuteClones.forEach(c=>{
+    const a=Math.max(0,c.life/26);
+    ctx.save();
+    // Current traced segment glow
+    ctx.globalAlpha=a*0.5;
+    ctx.strokeStyle='#ff7088';ctx.lineWidth=3;ctx.shadowColor='#ff6080';ctx.shadowBlur=14;
+    ctx.beginPath();ctx.moveTo(c.px,c.py);ctx.lineTo(c.x,c.y);ctx.stroke();
+    // Clone head moving along edge
+    ctx.globalAlpha=a;ctx.translate(c.x,c.y);
+    FORMS.acute.draw.call(FORMS.acute,ctx,c.size||12,fc);
+    ctx.restore();
+  });
+}
+
 function drawTriProjectiles(){
   triProjectiles.forEach(tp=>{
     // Ghost trail: fading copies of the triangle at past centroid positions
@@ -2302,6 +2705,14 @@ function drawTriProjectiles(){
 }
 
 function drawTGuide(){
+  if(currentForm().id==='acute'){
+    const tri=getAcuteGuideTri(mouse.x,mouse.y,84);
+    ctx.save();
+    ctx.setLineDash([6,6]);ctx.strokeStyle='rgba(255,120,140,0.45)';ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(tri[0].x,tri[0].y);ctx.lineTo(tri[1].x,tri[1].y);ctx.lineTo(tri[2].x,tri[2].y);ctx.closePath();ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    return;
+  }
   if(!tPts.length)return;
   ctx.save();
   tPts.forEach((p,i)=>{
@@ -2378,6 +2789,31 @@ function drawTriHazards(){
       ctx.textAlign='center';ctx.shadowBlur=0;
       ctx.fillText('HAZARD',h.cx,h.cy+4);
       ctx.textAlign='left';
+    }
+    ctx.restore();
+  });
+}
+
+function drawEliteRings(){
+  eliteRings.forEach(r=>{
+    ctx.save();
+    if(r.phase==='drop'){
+      const t=Math.max(0,r.timer/28);
+      const pulse=1+Math.sin(fc*0.24)*0.08;
+      ctx.globalAlpha=0.18+0.22*(1-t);
+      ctx.beginPath();ctx.arc(r.x,r.y,r.r*pulse,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,120,60,0.28)';ctx.fill();
+      ctx.globalAlpha=0.75;
+      ctx.beginPath();ctx.arc(r.x,r.y,r.r*pulse,0,Math.PI*2);
+      ctx.strokeStyle='#ff9050';ctx.lineWidth=2;ctx.shadowColor='#ff9050';ctx.shadowBlur=12;ctx.stroke();
+    } else {
+      const alpha=Math.max(0.15,1-r.r/r.maxR);
+      ctx.globalAlpha=alpha;
+      ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);
+      ctx.strokeStyle='#ff7040';ctx.lineWidth=4;ctx.shadowColor='#ff7040';ctx.shadowBlur=18;ctx.stroke();
+      ctx.globalAlpha=alpha*0.18;
+      ctx.beginPath();ctx.arc(r.x,r.y,Math.max(0,r.r-16),0,Math.PI*2);
+      ctx.fillStyle='#ff7040';ctx.fill();
     }
     ctx.restore();
   });
@@ -2636,11 +3072,11 @@ function drawQuadrantHUD(){
 
 let _lastTs=0;
 function loop(ts){
-  // 计算真实帧间隔，上限50ms（防止切换标签回来时一次性跳太多）
+  // Compute real frame delta, capped at 50ms to avoid huge jumps after tab switches
   const rawDt=ts-_lastTs;
   _lastTs=ts;
-  // realDt: 真实毫秒，转换成60fps等效帧数（16.667ms = 1帧）
-  // 限制在 1~3 帧之间防止极端情况
+  // realDt: real milliseconds converted to 60fps-equivalent frames (16.667ms = 1 frame)
+  // Clamp between 1 and 3 frames to avoid extreme cases
   window._realDt=Math.min(Math.max(rawDt/16.667, 0.5), 3.0);
   update();draw();requestAnimationFrame(loop);
 }

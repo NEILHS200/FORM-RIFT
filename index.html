@@ -285,7 +285,8 @@ const FORMS={
   equilateral:{
     id:'equilateral',name:'EQUILATERAL',role:'BALANCED',
     color:'#00ffcc',size:18,speed:3.2,dmgMult:1.0,
-    desc:'Versatile fighter. Click to fire triangle projectiles.',
+    desc:'Classic triangle-draw fighter with balanced stats.',
+    attackGuide:'Attack: Click 3 points to draw a damage triangle. Ultimate: Right-click at full ULT to fire a triple fan burst.',
     icon:'▲',
     draw(ctx,s,fc){
       const col=this.color;
@@ -298,7 +299,8 @@ const FORMS={
   acute:{
     id:'acute',name:'ACUTE',role:'ASSASSIN',
     color:'#ff4060',size:16,speed:4.2,dmgMult:1.4,
-    desc:'Fast & deadly. Auto-lunges at nearest enemy.',
+    desc:'Dash assassin. Click to spawn edge-dash clones from your position.',
+    attackGuide:'Attack: A ghost equilateral appears at your cursor. Each click sends 3 acute clones dashing along the triangle edges (costs EN). Ultimate: At full ULT, right-click enters a 3-charge dash mode for 10s.',
     icon:'◈',
     draw(ctx,s,fc){
       const col=this.color;
@@ -311,7 +313,8 @@ const FORMS={
   obtuse:{
     id:'obtuse',name:'OBTUSE',role:'GUARDIAN',
     color:'#4080ff',size:22,speed:2.2,dmgMult:0.7,
-    desc:'Wide & resilient. Deflects bullets. More HP.',
+    desc:'Front-guard tank with bullet deflection and bonus max HP.',
+    attackGuide:'Attack: Click 3 points to draw a damage triangle. Passive: Deflects bullets from the front face. Ultimate: Right-click at full ULT to fire a triple fan burst.',
     icon:'◭',
     draw(ctx,s,fc){
       const col=this.color;
@@ -324,7 +327,8 @@ const FORMS={
   right:{
     id:'right',name:'RIGHT ANGLE',role:'PHANTOM',
     color:'#c080ff',size:18,speed:3.5,dmgMult:1.1,
-    desc:'Dash-blink on F. Leaves afterimage decoys.',
+    desc:'Phantom skirmisher. F swap blink leaves afterimage decoys.',
+    attackGuide:'Attack: Click 3 points to draw a damage triangle. Passive: Form-swap blink on F. Ultimate: Right-click at full ULT to fire a triple fan burst.',
     icon:'◿',
     draw(ctx,s,fc){
       const col=this.color;
@@ -371,6 +375,9 @@ let triHazards=[];  // lingering triangle burn+slow zones from elite skill
 let explosions=[];  // dash-bomber explosion rings
 let eliteShieldCircle=null;
 let eliteRings=[]; // elite circle-drop then expanding shockwave attacks
+let acuteClones=[]; // acute normal-attack dash clones
+let acuteUltMode={active:false,charges:0,timerMs:0};
+let acuteUltDash=null; // active acute ult dash movement
 let gridOff=0;
 
 // ── Spell System ─────────────────────────────────────────────
@@ -581,11 +588,35 @@ document.getElementById('spellCanvas').addEventListener('contextmenu',e=>{
 });
 C.addEventListener('click',e=>{
   if(!['tutorial','playing'].includes(gs))return;
-  const r=C.getBoundingClientRect();addTPoint(e.clientX-r.left,e.clientY-r.top);
+  const r=C.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  if(currentForm().id==='acute'){
+    fireAcutePrimary(x,y);
+    return;
+  }
+  addTPoint(x,y);
 });
 C.addEventListener('contextmenu',e=>{
   e.preventDefault();
   if(!['tutorial','playing'].includes(gs))return;
+  const r=C.getBoundingClientRect();
+  const tx=e.clientX-r.left,ty=e.clientY-r.top;
+
+  if(currentForm().id==='acute'){
+    if(acuteUltMode.active){
+      fireAcuteUltDash(tx,ty);
+      if(gs==='tutorial') ultUsedInTut=true;
+      return;
+    }
+    if(P.ult>=P.maxUlt){
+      P.ult=0;updateUltHUD();
+      acuteUltMode={active:true,charges:3,timerMs:10000};
+      showSpellFlash('ACUTE ULT READY  ·  3 DASHES / 10s','#ff7088');
+      if(gs==='tutorial') ultUsedInTut=true;
+      return;
+    }
+  }
+
   // Ult fires when gauge full, otherwise fall back to shield
   if(P.ult>=P.maxUlt){
     P.ult=0;updateUltHUD();
@@ -621,6 +652,7 @@ function buildFormSelectUI(){
     const nameEl=document.createElement('div');nameEl.className='form-name';nameEl.innerText=f.name;
     const roleEl=document.createElement('div');roleEl.className='form-role';roleEl.innerText=f.role;
     const descEl=document.createElement('div');descEl.className='form-desc';descEl.innerText=f.desc;
+    card.title=f.attackGuide||f.desc;
 
     // Canvas preview — append AFTER text so it sits on top visually
     const cvs=document.createElement('canvas');
@@ -633,6 +665,13 @@ function buildFormSelectUI(){
     card.appendChild(descEl);
 
     cvs.dataset.formId=f.id;
+
+    card.addEventListener('mouseenter',()=>{hint.innerText=(f.attackGuide||f.desc);});
+    card.addEventListener('mouseleave',()=>{
+      if(sel1&&sel2) hint.innerText='Ready! Press BEGIN to start.';
+      else if(sel1) hint.innerText='Now click to select SECONDARY form';
+      else hint.innerText='Click to select PRIMARY form';
+    });
 
     card.addEventListener('click',()=>{
       if(!sel1||sel1===f.id){
@@ -723,7 +762,7 @@ function startGame(){
   updateUltHUD();
   activeBlessings.clear();
   enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
-  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;eliteRings=[];
+  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;
   tutStep=0;pMoved=0;mMoved=0;swapUsedInTut=false;atkUsed=0;ultUsedInTut=false;
   ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('narrativeScreen').classList.remove('show');
@@ -812,6 +851,64 @@ function showEliteAnim(name,sub){
 }
 
 // ── Attack ─────────────────────────────────────────────────
+function getAcuteGuideTri(x,y,size=44){
+  return [0,1,2].map(i=>({x:x+Math.cos(-Math.PI/2+i*Math.PI*2/3)*size,y:y+Math.sin(-Math.PI/2+i*Math.PI*2/3)*size}));
+}
+
+function fireAcutePrimary(x,y){
+  const cost=20;
+  if(P.en<cost){
+    const bar=document.getElementById('enFill');
+    bar.style.background='#ff4060';
+    setTimeout(()=>{bar.style.background='';},350);
+    return;
+  }
+  atkUsed++;
+  P.en=Math.max(0,P.en-cost);
+  const tri=getAcuteGuideTri(x,y,44);
+  const edges=[[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]];
+  edges.forEach(([a,b])=>{
+    const dir=Math.atan2(b.y-a.y,b.x-a.x);
+    acuteClones.push({x:P.x,y:P.y,vx:Math.cos(dir)*10,vy:Math.sin(dir)*10,life:26,size:12,mult:P.dmgMult*1.05,hitSet:new Set()});
+  });
+  spawnParts(P.x,P.y,'#ff6080',18);
+}
+
+function fireAcuteUltDash(tx,ty){
+  if(!acuteUltMode.active||acuteUltMode.charges<=0) return;
+  const sx=P.x,sy=P.y;
+  const dx=tx-sx,dy=ty-sy;
+  const dist=Math.hypot(dx,dy);
+  if(dist<6) return;
+  acuteUltMode.charges--;
+  acuteUltDash={sx,sy,tx,ty,t:0,dur:12,hitSet:new Set()};
+  P.invincible=Math.max(P.invincible,20);
+  spawnParts(P.x,P.y,'#ff4060',24);
+  if(acuteUltMode.charges<=0){
+    acuteUltMode.active=false;acuteUltMode.timerMs=0;
+    showSpellFlash('ACUTE ULT ENDED','#ff7088');
+  }
+}
+
+function hitLineSegmentDamage(ax,ay,bx,by,thickness,baseDmg,mult,hitSet,color){
+  const abx=bx-ax,aby=by-ay;
+  const ab2=abx*abx+aby*aby||1;
+  enemies.forEach(e=>{
+    if(hitSet&&hitSet.has(e)) return;
+    const apx=e.x-ax,apy=e.y-ay;
+    let t=(apx*abx+apy*aby)/ab2; t=Math.max(0,Math.min(1,t));
+    const cx=ax+abx*t,cy=ay+aby*t;
+    if(Math.hypot(e.x-cx,e.y-cy)<=thickness+e.size){
+      const dmg=Math.floor((baseDmg+Math.random()*8)*mult);
+      e.hp-=dmg;e.flashTimer=12;
+      if(hitSet) hitSet.add(e);
+      dmgNums.push({x:e.x,y:e.y-12,val:dmg,timer:38,vy:-1.2,color});
+      spawnParts(e.x,e.y,color,6);
+    }
+  });
+  killDead();
+}
+
 function addTPoint(x,y){
   if(tAnim)return;
   tPts.push({x,y});
@@ -1632,25 +1729,44 @@ function updateForms(){
     updateFormHUD();
   }
 
-  // Acute: auto-lunge toward nearest enemy
-  if(currentForm().id==='acute'){
-    const nearest=enemies.filter(e=>e.hp>0)
-      .sort((a,b)=>Math.hypot(P.x-a.x,P.y-a.y)-Math.hypot(P.x-b.x,P.y-b.y))[0];
-    if(nearest){
-      const dist=Math.hypot(nearest.x-P.x,nearest.y-P.y);
-      if(dist<120){
-        const ang=Math.atan2(nearest.y-P.y,nearest.x-P.x);
-        P.x+=Math.cos(ang)*2.5*timeScale;
-        P.y+=Math.sin(ang)*2.5*timeScale;
-        // Deal contact damage on close
-        if(dist<P.size+nearest.size+4&&nearest.hp>0&&P.invincible<=0){
-          const dmg=Math.floor(18*P.dmgMult);
-          nearest.hp-=dmg;nearest.flashTimer=10;
-          dmgNums.push({x:nearest.x,y:nearest.y-10,val:dmg,vy:-1.2,timer:40,crit:false});
-          if(nearest.hp<=0) killDead();
-          P.invincible=20; // brief iframes after lunge hit
-        }
+  // Acute ult mode timer (3 charges within 10s)
+  if(acuteUltMode.active){
+    acuteUltMode.timerMs-=dt;
+    if(acuteUltMode.timerMs<=0){
+      acuteUltMode.active=false;acuteUltMode.charges=0;acuteUltMode.timerMs=0;
+      showSpellFlash('ACUTE ULT EXPIRED','#ff7088');
+    }
+  }
+
+  // Acute primary clones dash and damage on contact
+  acuteClones.forEach(c=>{
+    c.x+=c.vx*timeScale;c.y+=c.vy*timeScale;c.life-=timeScale;
+    enemies.forEach(e=>{
+      if(c.hitSet.has(e)) return;
+      if(Math.hypot(e.x-c.x,e.y-c.y)<e.size+c.size){
+        c.hitSet.add(e);
+        const dmg=Math.floor((22+Math.random()*10)*c.mult);
+        e.hp-=dmg;e.flashTimer=10;
+        dmgNums.push({x:e.x,y:e.y-12,val:dmg,timer:36,vy:-1.1,color:'#ff6080'});
+        spawnParts(e.x,e.y,'#ff6080',5);
       }
+    });
+  });
+  acuteClones=acuteClones.filter(c=>c.life>0&&c.x>-60&&c.x<W+60&&c.y>-60&&c.y<H+60);
+  killDead();
+
+  // Acute ult dash movement + line damage while dashing
+  if(acuteUltDash){
+    const prevx=P.x,prevy=P.y;
+    acuteUltDash.t+=timeScale;
+    const k=Math.min(1,acuteUltDash.t/acuteUltDash.dur);
+    P.x=acuteUltDash.sx+(acuteUltDash.tx-acuteUltDash.sx)*k;
+    P.y=acuteUltDash.sy+(acuteUltDash.ty-acuteUltDash.sy)*k;
+    P.invincible=Math.max(P.invincible,10);
+    hitLineSegmentDamage(prevx,prevy,P.x,P.y,16,34,P.dmgMult*1.25,acuteUltDash.hitSet,'#ff4060');
+    if(k>=1){
+      spawnParts(P.x,P.y,'#ff4060',24);
+      acuteUltDash=null;
     }
   }
 
@@ -2106,7 +2222,7 @@ function startSpellTraining(){
   gs='playing';
   // reset arena objects but keep progression
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;eliteRings=[];spawnedAll=true;
+  eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;spawnedAll=true;
   P.x=W/2;P.y=H-120;
   P.en=P.maxEn;
   P.ult=Math.min(P.maxUlt,80);
@@ -2141,7 +2257,7 @@ function finishSpellTraining(){
   const panel=document.getElementById('spellTutPanel');
   if(panel) panel.style.display='none';
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;eliteRings=[];spawnedAll=false;
+  eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;spawnedAll=false;
   showSpellFlash('DRILL COMPLETE  ·  REWIND MASTERED','#60ffb0');
   setTimeout(()=>{
     document.getElementById('blsScreen').classList.add('hidden');
@@ -2263,7 +2379,7 @@ function goNextStage(){
   stage++;
   P.x=W/2;P.y=H/2;
   enemies=[];eBullets=[];burnMarks=[];slowZones=[];triHazards=[];explosions=[];tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];
-  eliteShieldCircle=null;eliteRings=[];spawnedAll=false;
+  eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;spawnedAll=false;
   bossQuadrant=1;bossOverview=false;bossPhaseTimer=0;bossCountdown=0;bossLasers=[];bossCages=[];bossSliceWarnings=[];
   gs='playing';spawnStage(stage);
 }
@@ -2275,7 +2391,7 @@ function draw(){
   drawGrid();
   if(stage===10) drawQuadrantOverlay();
   drawSlowZones();drawBurnMarks();drawTriHazards();drawEliteRings();drawEliteShield();
-  drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawTriProjectiles();drawTGuide();
+  drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawAcuteClones();drawTriProjectiles();drawTGuide();
   drawTrail();drawEnemies();drawPlayer();drawDmgNums();
   if(stage===10) drawQuadrantHUD();
   drawSpellFlash();
@@ -2392,6 +2508,15 @@ function drawEnemies(){
   });
 }
 
+function drawAcuteClones(){
+  acuteClones.forEach(c=>{
+    const a=Math.max(0,c.life/26);
+    ctx.save();ctx.globalAlpha=a;ctx.translate(c.x,c.y);
+    FORMS.acute.draw.call(FORMS.acute,ctx,c.size,fc);
+    ctx.restore();
+  });
+}
+
 function drawTriProjectiles(){
   triProjectiles.forEach(tp=>{
     // Ghost trail: fading copies of the triangle at past centroid positions
@@ -2425,6 +2550,14 @@ function drawTriProjectiles(){
 }
 
 function drawTGuide(){
+  if(currentForm().id==='acute'){
+    const tri=getAcuteGuideTri(mouse.x,mouse.y,44);
+    ctx.save();
+    ctx.setLineDash([6,6]);ctx.strokeStyle='rgba(255,120,140,0.45)';ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(tri[0].x,tri[0].y);ctx.lineTo(tri[1].x,tri[1].y);ctx.lineTo(tri[2].x,tri[2].y);ctx.closePath();ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    return;
+  }
   if(!tPts.length)return;
   ctx.save();
   tPts.forEach((p,i)=>{

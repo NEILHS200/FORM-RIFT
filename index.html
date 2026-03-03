@@ -278,6 +278,7 @@ const C=document.getElementById('c'),ctx=C.getContext('2d');
 const W=900,H=600;
 let gs='title',keys={},mouse={x:W/2,y:H/2};
 let score=0,fc=0,stage=1,spawnedAll=false;
+const PRACTICE_GATE={x:760,y:520,r:56};
 
 // ── Player ───────────────────────────────────────────────
 // ── Form Definitions ────────────────────────────────────
@@ -538,7 +539,7 @@ document.addEventListener('keyup',e=>{
 });
 C.addEventListener('mousemove',e=>{
   const r=C.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;
-  if(['tutorial','playing'].includes(gs))mMoved++;
+  if(['tutorial','playing','practice'].includes(gs))mMoved++;
 });
 // Spell canvas: press-and-drag to draw, release to recognise
 let spellDrawing=false;
@@ -587,7 +588,7 @@ document.getElementById('spellCanvas').addEventListener('contextmenu',e=>{
   }
 });
 C.addEventListener('click',e=>{
-  if(!['tutorial','playing'].includes(gs))return;
+  if(!['tutorial','playing','practice'].includes(gs))return;
   const r=C.getBoundingClientRect();
   const x=e.clientX-r.left,y=e.clientY-r.top;
   if(currentForm().id==='acute'){
@@ -598,7 +599,7 @@ C.addEventListener('click',e=>{
 });
 C.addEventListener('contextmenu',e=>{
   e.preventDefault();
-  if(!['tutorial','playing'].includes(gs))return;
+  if(!['tutorial','playing','practice'].includes(gs))return;
   const r=C.getBoundingClientRect();
   const tx=e.clientX-r.left,ty=e.clientY-r.top;
 
@@ -726,7 +727,7 @@ function buildFormSelectUI(){
     equippedForms=[sel1,sel2];
     activeFormIdx=0;
     document.getElementById('formSelectScreen').classList.add('hidden');
-    startGame();
+    startPracticeStage();
   };
 }
 document.getElementById('restartBtn').addEventListener('click',()=>{
@@ -742,6 +743,48 @@ document.getElementById('playAgainBtn').addEventListener('click',()=>{
 });
 
 // ── Game init ──────────────────────────────────────────────
+function startPracticeStage(){
+  score=0;fc=0;stage=1;spawnedAll=false;
+  spellState='off';spellCharge=0;spellTimer=0;spellCooldown=0;
+  spellStroke=[];spellStrokes=[];spellResult=null;spellFlash=null;activeSpell=null;
+  timeScale=1.0;STATE_HISTORY.length=0;reviveTokens=0;
+  document.getElementById('spellOverlay').style.opacity='0';
+  document.getElementById('spellCanvas').style.display='none';
+  document.getElementById('spellHUD').style.display='none';
+  updateChargeRing(0);updateSpellCD();updateReviveHUD();
+  activeFormIdx=0;tabCooldownMs=0;phantomDecoys=[];
+  applyFormStats();
+  const obtuse=currentForm().id==='obtuse';
+  Object.assign(P,{x:W/2,y:H/2,hp:obtuse?130:100,maxHp:obtuse?130:100,shield:0,maxShield:0,
+    en:100,maxEn:100,enRegen:.18,ult:100,maxUlt:100,invincible:0,trail:[],
+    speed:currentForm().speed,dmgMult:currentForm().dmgMult,size:currentForm().size});
+  updateFormHUD();
+  const ultRowEl=document.getElementById('ultRow');if(ultRowEl)ultRowEl.style.display='flex';
+  updateUltHUD();
+  activeBlessings.clear();
+  enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
+  tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;eliteRings=[];acuteClones=[];acuteUltMode={active:false,charges:0,timerMs:0};acuteUltDash=null;
+  tutStep=0;pMoved=0;mMoved=0;swapUsedInTut=false;atkUsed=0;ultUsedInTut=false;
+  ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('narrativeScreen').classList.remove('show');
+  document.getElementById('blsScreen').classList.add('hidden');
+  document.getElementById('blessingBar').innerHTML='';
+  document.getElementById('tutPanel').style.display='none';
+  document.getElementById('spellTutPanel').style.display='none';
+  (document.getElementById('shieldRow')||{style:{}}).style.display='none';
+  spellTrainingActive=false;spellTrainingDone=false;
+  document.getElementById('stageLbl').innerText='PRACTICE';
+
+  const dummy=makeEnemy('tank',W/2,170);
+  dummy.practiceDummy=true;
+  dummy.hp=260;dummy.maxHp=260;dummy.speed=0;dummy.reward=0;dummy.color='#ff9090';
+  enemies=[dummy];
+
+  gs='practice';
+  showSpellFlash('PRACTICE MODE: TEST YOUR FORM  ·  MOVE TO GATE TO START','#80e0ff');
+  updateFormHUD();
+}
+
 function startGame(){
   score=0;fc=0;stage=1;spawnedAll=false;
   spellState='off';spellCharge=0;spellTimer=0;spellCooldown=0;
@@ -1074,6 +1117,13 @@ function ptInTri(px,py,a,b,c){
 function killDead(){
   enemies=enemies.filter(e=>{
     if(e.hp>0)return true;
+    if(e.practiceDummy){
+      e.hp=e.maxHp;
+      e.flashTimer=14;
+      spawnParts(e.x,e.y,'#80e0ff',16);
+      showSpellFlash('PRACTICE DUMMY RESET','#80e0ff');
+      return true;
+    }
     score+=e.reward||100;
     spawnParts(e.x,e.y,e.color,18);
     if(hasB('burn')||hasB('burn_slow')||hasB('burn_dmg'))
@@ -1422,7 +1472,7 @@ function initSpellCanvas(){
 }
 
 function startECharge(){
-  if(!['tutorial','playing'].includes(gs))return;
+  if(!['tutorial','playing','practice'].includes(gs))return;
   if(spellState==='off'||spellState==='cooldown') spellState='charging';
 }
 function cancelECharge(){
@@ -1632,7 +1682,7 @@ function updateSpellCD(){
 
 // ── Update spell system ──────────────────────────────────
 function updateSpell(){
-  if(!['tutorial','playing'].includes(gs)) return;
+  if(!['tutorial','playing','practice'].includes(gs)) return;
   saveGameState();
   const dt=(window._realDt||1)*16.667; // real ms this frame
   if(spellState==='charging'){
@@ -1680,7 +1730,7 @@ function learnSpell(name){
 
 // ── Form Switch ─────────────────────────────────────────────
 function trySwapForm(){
-  if(!['tutorial','playing'].includes(gs)) return false;
+  if(!['tutorial','playing','practice'].includes(gs)) return false;
   if(tabCooldownMs>0) return false; // still cooling down
   if(equippedForms[0]===equippedForms[1]) return false; // same form
 
@@ -1709,7 +1759,7 @@ function spawnPhantomDecoy(){
 function updateFormHUD(){
   const hud=document.getElementById('formHUD');
   if(!hud) return;
-  hud.style.display=['tutorial','playing'].includes(gs)?'flex':'none';
+  hud.style.display=['tutorial','playing','practice'].includes(gs)?'flex':'none';
   [0,1].forEach(i=>{
     const pip=document.getElementById('formPip'+i);
     const cvs=document.getElementById('formPipC'+i);
@@ -1840,7 +1890,7 @@ function update(){
   fc++;
   updateSpell();
   updateForms();
-  if(!['tutorial','playing'].includes(gs))return;
+  if(!['tutorial','playing','practice'].includes(gs))return;
 
   // Player movement — quadrant flips axes during boss fight
   let dx=0,dy=0;
@@ -2205,6 +2255,14 @@ function update(){
   // Tutorial
   if(gs==='tutorial'&&TUTS[tutStep]&&TUTS[tutStep].c())advanceTut();
 
+  // Practice gate to start real run
+  if(gs==='practice'){
+    if(Math.hypot(P.x-PRACTICE_GATE.x,P.y-PRACTICE_GATE.y)<PRACTICE_GATE.r){
+      startGame();
+      return;
+    }
+  }
+
   // Clear check
   if(gs==='playing'&&!spellTrainingActive&&spawnedAll&&enemies.length===0)stageClear();
 
@@ -2396,7 +2454,29 @@ function draw(){
   drawExplosions();drawParticles();drawEBullets();drawBossEffects();drawTAnims();drawAcuteClones();drawTriProjectiles();drawTGuide();
   drawTrail();drawEnemies();drawPlayer();drawDmgNums();
   if(stage===10) drawQuadrantHUD();
+  if(gs==='practice') drawPracticeGate();
   drawSpellFlash();
+}
+
+function drawPracticeGate(){
+  const g=PRACTICE_GATE;
+  const inside=Math.hypot(P.x-g.x,P.y-g.y)<g.r;
+  ctx.save();
+  const pulse=0.75+Math.sin(fc*0.08)*0.25;
+  ctx.globalAlpha=0.18+0.18*pulse;
+  ctx.beginPath();ctx.arc(g.x,g.y,g.r,0,Math.PI*2);
+  ctx.fillStyle=inside?'#80ffb0':'#80e0ff';ctx.fill();
+  ctx.globalAlpha=0.75;
+  ctx.beginPath();ctx.arc(g.x,g.y,g.r*(0.92+0.08*pulse),0,Math.PI*2);
+  ctx.strokeStyle=inside?'#b0ffd0':'#80e0ff';ctx.lineWidth=2.2;ctx.shadowColor=inside?'#b0ffd0':'#80e0ff';ctx.shadowBlur=16;ctx.stroke();
+  ctx.shadowBlur=0;ctx.textAlign='center';ctx.font='10px Orbitron';
+  ctx.fillStyle='rgba(190,240,255,0.95)';
+  ctx.fillText('ENTER RUN',g.x,g.y+3);
+  ctx.textAlign='left';
+  ctx.restore();
+
+  const hint=document.getElementById('atkHint');
+  if(hint) hint.innerText='PRACTICE DUMMY REGENERATES · WALK INTO GLOWING GATE TO START';
 }
 
 function drawGrid(){

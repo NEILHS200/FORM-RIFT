@@ -417,11 +417,12 @@ let bossSliceWarnings=[];  // mirror-slice warning lines
 const TUTS=[
   {t:'MOVE',     tx:'Use <b>WASD</b> to move your triangle form.',                                          c:()=>pMoved>=80},
   {t:'AIM',      tx:'Move the <b>mouse</b> to rotate toward enemies.',                                      c:()=>mMoved>=60},
+  {t:'SWITCH',   tx:'Press <b>F</b> to switch forms. (If both slots use the same form, switching is disabled.)', c:()=>swapUsedInTut||equippedForms[0]===equippedForms[1]},
   {t:'ATTACK',   tx:'<b>Click 3 points</b> to draw a triangle zone — enemies inside take damage.',          c:()=>atkUsed>=1},
   {t:'ULTIMATE', tx:'Your <b>Ultimate</b> is fully charged! <b>Right-click</b> to unleash it now.',         c:()=>ultUsedInTut},
   {t:'CLEAR',    tx:'Enemies incoming! <b>Destroy them all</b> to clear the stage.',                        c:()=>enemies.length===0&&spawnedAll},
 ];
-let tutStep=0,pMoved=0,mMoved=0,atkUsed=0,ultUsedInTut=false;
+let tutStep=0,pMoved=0,mMoved=0,swapUsedInTut=false,atkUsed=0,ultUsedInTut=false;
 
 // ── Stage definitions ─────────────────────────────────────
 const STAGES=[
@@ -521,7 +522,7 @@ function updateBBar(){
 document.addEventListener('keydown',e=>{
   keys[e.key.toLowerCase()]=true;
   if(e.key.toLowerCase()==='e'&&!e.repeat) startECharge();
-  if(e.key.toLowerCase()==='f'&&!e.repeat){e.preventDefault();trySwapForm();}
+  if(e.key.toLowerCase()==='f'&&!e.repeat){e.preventDefault();if(trySwapForm()&&gs==='tutorial')swapUsedInTut=true;}
 });
 document.addEventListener('keyup',e=>{
   keys[e.key.toLowerCase()]=false;
@@ -722,7 +723,7 @@ function startGame(){
   activeBlessings.clear();
   enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
   tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;
-  tutStep=0;pMoved=0;mMoved=0;atkUsed=0;ultUsedInTut=false;
+  tutStep=0;pMoved=0;mMoved=0;swapUsedInTut=false;atkUsed=0;ultUsedInTut=false;
   ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('narrativeScreen').classList.remove('show');
   updateFormHUD();
@@ -751,7 +752,7 @@ function updateTutUI(){
 function advanceTut(){
   tutStep++;
   if(tutStep>=TUTS.length){document.getElementById('tutPanel').style.display='none';gs='playing';spawnStage(1);return;}
-  if(tutStep===4)spawnStage(1); // CLEAR step — spawn enemies now
+  if(tutStep===5)spawnStage(1); // CLEAR step — spawn enemies now
   updateTutUI();
 }
 
@@ -1564,9 +1565,9 @@ function learnSpell(name){
 
 // ── Form Switch ─────────────────────────────────────────────
 function trySwapForm(){
-  if(!['tutorial','playing'].includes(gs)) return;
-  if(tabCooldownMs>0) return; // still cooling down
-  if(equippedForms[0]===equippedForms[1]) return; // same form
+  if(!['tutorial','playing'].includes(gs)) return false;
+  if(tabCooldownMs>0) return false; // still cooling down
+  if(equippedForms[0]===equippedForms[1]) return false; // same form
 
   // Phantom form: dash-blink on swap
   if(currentForm().id==='right'){
@@ -1583,6 +1584,7 @@ function trySwapForm(){
   applyFormStats();
   spawnParts(P.x,P.y,currentForm().color,20);
   updateFormHUD();
+  return true;
 }
 
 function spawnPhantomDecoy(){
@@ -2072,10 +2074,10 @@ function startSpellTraining(){
   const panel=document.getElementById('spellTutPanel');
   const body=document.getElementById('spellTutBody');
   if(panel&&body){
-    body.innerHTML='1) <b>长按 E 不要松开</b>，直到进入施法模式。<br>'+
-      '2) 保持按住 E，同时用<b>鼠标左键</b>沿屏幕模板描图。<br>'+
-      '3) 成功后触发<b>TIME REWIND（回溯 5 秒）</b>。<br>'+
-      '会恢复：<b>HP / EN / ULT / 你的位置 / 敌人位置 / 子弹与敌人状态</b>。';
+    body.innerHTML='1) <b>Hold E</b> until cast mode opens — do not release it.<br>'+
+      '2) Keep holding E and use <b>left click</b> to trace the on-screen pattern.<br>'+
+      '3) On success, cast <b>TIME REWIND (5 seconds)</b>.<br>'+
+      'Rewind restores: <b>HP / EN / ULT / your position / enemy positions / bullets and enemy states</b>.';
     panel.style.display='block';
   }
   showSpellFlash('SPELL DRILL STARTED  ·  CAST REWIND ONCE','#60e0ff');

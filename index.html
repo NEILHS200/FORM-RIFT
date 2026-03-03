@@ -301,7 +301,7 @@ const FORMS={
     id:'acute',name:'ACUTE',role:'ASSASSIN',
     color:'#ff4060',size:16,speed:4.2,dmgMult:1.4,
     desc:'Dash assassin. Click to spawn edge-dash clones from your position.',
-    attackGuide:'Attack: A ghost equilateral appears at your cursor. Each click sends 3 acute clones dashing along the triangle edges (costs EN). Ultimate: At full ULT, right-click enters a 3-charge dash mode for 10s.',
+    attackGuide:'Attack: A ghost equilateral appears at your cursor. Each click traces all 3 edges around that cursor triangle and damages enemies on those edge paths (costs EN). Ultimate: At full ULT, right-click enters a 3-charge dash mode for 10s.',
     icon:'◈',
     draw(ctx,s,fc){
       const col=this.color;
@@ -910,22 +910,15 @@ function fireAcutePrimary(x,y){
   P.en=Math.max(0,P.en-cost);
   const tri=getAcuteGuideTri(x,y,44);
   const edges=[[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]];
-  // Add one guaranteed dash toward cursor target
-  const aimDir=Math.atan2(y-P.y,x-P.x);
-  edges.push([{x:P.x,y:P.y},{x:P.x+Math.cos(aimDir)*44,y:P.y+Math.sin(aimDir)*44}]);
   edges.forEach(([a,b])=>{
-    const dir=Math.atan2(b.y-a.y,b.x-a.x);
-    const len=170;
-    const tx=P.x+Math.cos(dir)*len;
-    const ty=P.y+Math.sin(dir)*len;
     const hitSet=new Set();
-    // Immediate slash hit so attack always feels responsive
-    hitLineSegmentDamage(P.x,P.y,tx,ty,14,24,P.dmgMult*1.05,hitSet,'#ff6080');
-    acuteClones.push({sx:P.x,sy:P.y,tx,ty,t:0,dur:9,life:18,size:13,mult:P.dmgMult*1.05,hitSet});
+    // Damage is applied along the ghost triangle edges around cursor
+    hitLineSegmentDamage(a.x,a.y,b.x,b.y,14,24,P.dmgMult*1.05,hitSet,'#ff6080');
+    acuteClones.push({sx:a.x,sy:a.y,tx:b.x,ty:b.y,t:0,dur:10,life:18,size:12,mult:P.dmgMult*1.05,hitSet});
   });
   // Brief guide flash on clicked target triangle
   tAnim2.push({pts:tri,timer:16,max:16,warn:false,crit:false});
-  spawnParts(P.x,P.y,'#ff6080',18);
+  spawnParts(x,y,'#ff6080',18);
 }
 
 function fireAcuteUltDash(tx,ty){

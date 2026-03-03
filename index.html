@@ -910,6 +910,9 @@ function fireAcutePrimary(x,y){
   P.en=Math.max(0,P.en-cost);
   const tri=getAcuteGuideTri(x,y,44);
   const edges=[[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]];
+  // Add one guaranteed dash toward cursor target
+  const aimDir=Math.atan2(y-P.y,x-P.x);
+  edges.push([{x:P.x,y:P.y},{x:P.x+Math.cos(aimDir)*44,y:P.y+Math.sin(aimDir)*44}]);
   edges.forEach(([a,b])=>{
     const dir=Math.atan2(b.y-a.y,b.x-a.x);
     const len=170;
@@ -933,6 +936,8 @@ function fireAcuteUltDash(tx,ty){
   if(dist<6) return;
   acuteUltMode.charges--;
   acuteUltDash={sx,sy,tx,ty,t:0,dur:12,hitSet:new Set()};
+  // Immediate path hit so ult feels reliable on click
+  hitLineSegmentDamage(sx,sy,tx,ty,18,34,P.dmgMult*1.25,acuteUltDash.hitSet,'#ff4060');
   P.invincible=Math.max(P.invincible,20);
   spawnParts(P.x,P.y,'#ff4060',24);
   if(acuteUltMode.charges<=0){
@@ -1780,7 +1785,7 @@ function updateFormHUD(){
 }
 
 function updateForms(){
-  if(!['tutorial','playing'].includes(gs)) return;
+  if(!['tutorial','playing','practice'].includes(gs)) return;
   const dt=(window._realDt||1)*16.667;
   if(tabCooldownMs>0){
     tabCooldownMs=Math.max(0,tabCooldownMs-dt);

@@ -80,7 +80,7 @@ canvas{display:block;background:var(--bg);border:1px solid rgba(0,255,204,0.15);
 
 /* Narrative cutscene */
 #narrativeScreen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;background:rgba(2,2,6,.98);z-index:15;pointer-events:none;opacity:0;
+  justify-content:center;background:rgba(2,2,6,.98);z-index:20;pointer-events:none;opacity:0;
   transition:opacity .6s;}
 #narrativeScreen.show{opacity:1;pointer-events:all;}
 #narrativeTxt{font-family:'Orbitron',monospace;font-size:15px;line-height:2.2;
@@ -277,11 +277,12 @@ const FORMS={
     desc:'Versatile fighter. Click to fire triangle projectiles.',
     icon:'▲',
     draw(ctx,s,fc){
+      const col=this.color;
       ctx.beginPath();ctx.moveTo(0,-s);ctx.lineTo(s*.85,s*.6);ctx.lineTo(-s*.85,s*.6);ctx.closePath();
-      ctx.strokeStyle=this.color;ctx.lineWidth=1.5;ctx.stroke();
-      ctx.globalAlpha=.13;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+      ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.13;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;
     },
-    onAttack:null, // uses default triangle click
+    onAttack:null,
   },
   acute:{
     id:'acute',name:'ACUTE',role:'ASSASSIN',
@@ -289,12 +290,12 @@ const FORMS={
     desc:'Fast & deadly. Auto-lunges at nearest enemy.',
     icon:'◈',
     draw(ctx,s,fc){
-      // Narrow acute triangle - tall and thin
+      const col=this.color;
       ctx.beginPath();ctx.moveTo(0,-s*1.3);ctx.lineTo(s*.4,s*.7);ctx.lineTo(-s*.4,s*.7);ctx.closePath();
-      ctx.strokeStyle=this.color;ctx.lineWidth=1.5;ctx.stroke();
-      ctx.globalAlpha=.15;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+      ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.15;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;
     },
-    onAttack:'lunge', // auto lunge toward nearest enemy
+    onAttack:'lunge',
   },
   obtuse:{
     id:'obtuse',name:'OBTUSE',role:'GUARDIAN',
@@ -302,10 +303,10 @@ const FORMS={
     desc:'Wide & resilient. Deflects bullets. More HP.',
     icon:'◭',
     draw(ctx,s,fc){
-      // Wide flat obtuse triangle
+      const col=this.color;
       ctx.beginPath();ctx.moveTo(0,-s*.5);ctx.lineTo(s*1.2,s*.8);ctx.lineTo(-s*1.2,s*.8);ctx.closePath();
-      ctx.strokeStyle=this.color;ctx.lineWidth=2;ctx.stroke();
-      ctx.globalAlpha=.18;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.stroke();
+      ctx.globalAlpha=.18;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;
     },
     onAttack:'deflect',
   },
@@ -315,10 +316,10 @@ const FORMS={
     desc:'Dash-blink on Tab. Leaves afterimage decoys.',
     icon:'◿',
     draw(ctx,s,fc){
-      // Right angle triangle
+      const col=this.color;
       ctx.beginPath();ctx.moveTo(-s*.8,s*.7);ctx.lineTo(-s*.8,-s*.8);ctx.lineTo(s*.9,s*.7);ctx.closePath();
-      ctx.strokeStyle=this.color;ctx.lineWidth=1.5;ctx.stroke();
-      ctx.globalAlpha=.13;ctx.fillStyle=this.color;ctx.fill();ctx.globalAlpha=1;
+      ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=.13;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;
     },
     onAttack:null,
   },
@@ -400,12 +401,13 @@ let bossSliceWarnings=[];  // mirror-slice warning lines
 
 // ── Tutorial ──────────────────────────────────────────────
 const TUTS=[
-  {t:'MOVE',     tx:'Use <b>WASD</b> to move your triangle form.',                              c:()=>pMoved>=80},
-  {t:'AIM',      tx:'Move the <b>mouse</b> to rotate toward enemies.',                           c:()=>mMoved>=60},
-  {t:'ATTACK',   tx:'<b>Click 3 points</b> to draw a triangle zone — enemies inside take damage.',c:()=>atkUsed>=1},
-  {t:'CLEAR',    tx:'Enemies incoming! <b>Destroy them all</b> to clear the stage.',              c:()=>enemies.length===0&&spawnedAll},
+  {t:'MOVE',     tx:'Use <b>WASD</b> to move your triangle form.',                                          c:()=>pMoved>=80},
+  {t:'AIM',      tx:'Move the <b>mouse</b> to rotate toward enemies.',                                      c:()=>mMoved>=60},
+  {t:'ATTACK',   tx:'<b>Click 3 points</b> to draw a triangle zone — enemies inside take damage.',          c:()=>atkUsed>=1},
+  {t:'ULTIMATE', tx:'Your <b>Ultimate</b> is fully charged! <b>Right-click</b> to unleash it now.',         c:()=>ultUsedInTut},
+  {t:'CLEAR',    tx:'Enemies incoming! <b>Destroy them all</b> to clear the stage.',                        c:()=>enemies.length===0&&spawnedAll},
 ];
-let tutStep=0,pMoved=0,mMoved=0,atkUsed=0;
+let tutStep=0,pMoved=0,mMoved=0,atkUsed=0,ultUsedInTut=false;
 
 // ── Stage definitions ─────────────────────────────────────
 const STAGES=[
@@ -572,6 +574,7 @@ C.addEventListener('contextmenu',e=>{
   if(P.ult>=P.maxUlt){
     P.ult=0;updateUltHUD();
     fireUlt();
+    if(gs==='tutorial') ultUsedInTut=true;
     return;
   }
   if(P.en>=30){
@@ -597,18 +600,23 @@ function buildFormSelectUI(){
   Object.values(FORMS).forEach(f=>{
     const card=document.createElement('div');
     card.className='form-card';
-    // Mini canvas preview
+
+    // Build text content first via DOM (NOT innerHTML+= which destroys canvas)
+    const nameEl=document.createElement('div');nameEl.className='form-name';nameEl.innerText=f.name;
+    const roleEl=document.createElement('div');roleEl.className='form-role';roleEl.innerText=f.role;
+    const descEl=document.createElement('div');descEl.className='form-desc';descEl.innerText=f.desc;
+
+    // Canvas preview — append AFTER text so it sits on top visually
     const cvs=document.createElement('canvas');
     cvs.className='form-canvas';cvs.width=80;cvs.height=80;
-    const c2=cvs.getContext('2d');
-    c2.translate(40,40);
-    c2.shadowColor=f.color;c2.shadowBlur=14;
-    f.draw(c2,24,0);
-    card.appendChild(cvs);
+    cvs.style.display='block';cvs.style.margin='0 auto 12px';
 
-    card.innerHTML+=`<div class="form-name">${f.name}</div>
-      <div class="form-role">${f.role}</div>
-      <div class="form-desc">${f.desc}</div>`;
+    card.appendChild(cvs);
+    card.appendChild(nameEl);
+    card.appendChild(roleEl);
+    card.appendChild(descEl);
+
+    cvs.dataset.formId=f.id;
 
     card.addEventListener('click',()=>{
       if(!sel1||sel1===f.id){
@@ -641,6 +649,22 @@ function buildFormSelectUI(){
     });
     grid.appendChild(card);
   });
+
+  // Draw shapes after DOM is ready and screen is visible
+  setTimeout(()=>{
+    grid.querySelectorAll('canvas[data-form-id]').forEach(cvs=>{
+      const f=FORMS[cvs.dataset.formId];
+      if(!f) return;
+      const c2=cvs.getContext('2d');
+      c2.clearRect(0,0,80,80);
+      c2.save();
+      c2.translate(40,40);
+      c2.shadowColor=f.color;
+      c2.shadowBlur=18;
+      f.draw.call(f,c2,26,0);
+      c2.restore();
+    });
+  },80);
 
   confirmBtn.onclick=()=>{
     if(!sel1||!sel2) return;
@@ -676,7 +700,7 @@ function startGame(){
   applyFormStats();
   const obtuse=currentForm().id==='obtuse';
   Object.assign(P,{x:W/2,y:H/2,hp:obtuse?130:100,maxHp:obtuse?130:100,shield:0,maxShield:0,
-    en:100,maxEn:100,enRegen:.18,ult:0,maxUlt:100,invincible:0,trail:[],
+    en:100,maxEn:100,enRegen:.18,ult:100,maxUlt:100,invincible:0,trail:[],
     speed:currentForm().speed,dmgMult:currentForm().dmgMult,size:currentForm().size});
   updateFormHUD();
   const ultRowEl=document.getElementById('ultRow');if(ultRowEl)ultRowEl.style.display='flex';
@@ -684,7 +708,7 @@ function startGame(){
   activeBlessings.clear();
   enemies=[];particles=[];eBullets=[];burnMarks=[];slowZones=[];explosions=[];
   tPts=[];tAnim=null;tAnim2=[];triProjectiles=[];triHazards=[];dmgNums=[];eliteShieldCircle=null;
-  tutStep=0;pMoved=0;mMoved=0;atkUsed=0;
+  tutStep=0;pMoved=0;mMoved=0;atkUsed=0;ultUsedInTut=false;
   ['titleScreen','deathScreen','winScreen','formSelectScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('narrativeScreen').classList.remove('show');
   updateFormHUD();
@@ -699,7 +723,7 @@ function startGame(){
 // ── Tutorial ──────────────────────────────────────────────
 function updateTutUI(){
   const s=TUTS[tutStep];if(!s)return;
-  document.getElementById('tutTitle').innerText=`TUTORIAL ${tutStep+1}/4 · ${s.t}`;
+  document.getElementById('tutTitle').innerText=`TUTORIAL ${tutStep+1}/${TUTS.length} · ${s.t}`;
   document.getElementById('tutTxt').innerHTML=s.tx;
   const dots=document.getElementById('tutDots');dots.innerHTML='';
   TUTS.forEach((_,i)=>{
@@ -711,7 +735,7 @@ function updateTutUI(){
 function advanceTut(){
   tutStep++;
   if(tutStep>=TUTS.length){document.getElementById('tutPanel').style.display='none';gs='playing';spawnStage(1);return;}
-  if(tutStep===3)spawnStage(1);
+  if(tutStep===4)spawnStage(1); // CLEAR step — spawn enemies now
   updateTutUI();
 }
 
@@ -1563,7 +1587,7 @@ function updateFormHUD(){
     c2.clearRect(0,0,28,28);
     c2.save();c2.translate(14,14);
     c2.shadowColor=f.color;c2.shadowBlur=8;
-    f.draw(c2,9,fc);
+    f.draw.call(f,c2,9,fc);
     c2.restore();
   });
   // Tab cooldown bar on secondary pip
@@ -1650,7 +1674,7 @@ function drawPhantomDecoys(){
     ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.angle+Math.PI/2);
     ctx.globalAlpha=d.life*0.45;
     ctx.shadowColor=d.color;ctx.shadowBlur=10;
-    FORMS['right'].draw(ctx,d.size,fc);
+    FORMS['right'].draw.call(FORMS['right'],ctx,d.size,fc);
     ctx.restore();
   });
 }
@@ -2043,11 +2067,15 @@ function triggerSpellNarrative(){
       screen.style.pointerEvents='all';
       screen.onclick=()=>{
         screen.classList.remove('show');
+        screen.style.pointerEvents='none';
         screen.onclick=null;
         // Grant rewind spell
         learnSpell('rewind');
-        // Resume to blessing after short delay
-        setTimeout(showBlsScreen,600);
+        // Small delay then show blessing screen
+        setTimeout(()=>{
+          document.getElementById('blsScreen').classList.add('hidden'); // reset first
+          showBlsScreen();
+        }, 500);
       };
       return;
     }
@@ -2153,7 +2181,7 @@ function drawPlayer(){
   const f=currentForm();
   ctx.shadowColor=f.color;ctx.shadowBlur=16;
   const s=P.size;
-  f.draw(ctx,s,fc);
+  f.draw.call(f,ctx,s,fc);
   ctx.shadowBlur=0;ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fillStyle=f.color;ctx.fill();
   if(P.shield>0){
     ctx.globalAlpha=.22+Math.sin(fc*.1)*.08;

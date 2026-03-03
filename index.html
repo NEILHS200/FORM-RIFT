@@ -406,6 +406,7 @@ let activeSpell=null;       // currently equipped spell (only 1 at a time)
 let reviveTokens=0;         // DY easter egg reward
 let spellCtx=null;          // 2D context for spell canvas
 const REWIND_MS=5000;        // rewind 5 seconds
+let rewindPlayback=null;     // {frames,idx,timer,stepMs,targetSnap}
 let spellTrainingActive=false;
 let spellTrainingDone=false;
 
@@ -1642,12 +1643,7 @@ function saveGameState(){
     px:P.x,py:P.y,php:P.hp,pmaxHp:P.maxHp,pen:P.en,psh:P.shield,pult:P.ult});
   if(STATE_HISTORY.length>200) STATE_HISTORY.shift(); // keep enough snapshots for rewind window
 }
-function rewindGameState(){
-  const targetTs=performance.now()-REWIND_MS; // 5 seconds ago
-  const snap=STATE_HISTORY.filter(s=>s.ts&&s.ts<=targetTs).pop()
-           ||STATE_HISTORY[0]; // nearest snapshot not later than rewind target
-  if(!snap) return;
-  // Restore full game state from the snapshot
+function applySnapshotState(snap,final=false){
   enemies=snap.enemies.map(e=>({...e}));
   eBullets=snap.eBullets.map(b=>({...b}));
   burnMarks=snap.burnMarks?snap.burnMarks.map(b=>({...b})):[];
@@ -1655,11 +1651,30 @@ function rewindGameState(){
   P.hp=snap.php;P.maxHp=snap.pmaxHp;
   P.en=snap.pen;P.shield=snap.psh;
   if(snap.pult!==undefined){P.ult=snap.pult;updateUltHUD();}
-  P.invincible=80; // brief invulnerability buffer to prevent instant re-death
-  STATE_HISTORY.length=0;
-  // Blue particle burst + rewind visual feedback
-  for(let i=0;i<80;i++) spawnParts(P.x,P.y,'#60e0ff',1);
-  spawnParts(W/2,H/2,'#60e0ff',60);
+  if(final){
+    P.invincible=80; // brief invulnerability buffer to prevent instant re-death
+    STATE_HISTORY.length=0;
+    for(let i=0;i<80;i++) spawnParts(P.x,P.y,'#60e0ff',1);
+    spawnParts(W/2,H/2,'#60e0ff',60);
+  }
+}
+
+function rewindGameState(){
+  const now=performance.now();
+  const targetTs=now-REWIND_MS; // 5 seconds ago
+  const targetSnap=STATE_HISTORY.filter(s=>s.ts&&s.ts<=targetTs).pop()
+           ||STATE_HISTORY[0]; // nearest snapshot not later than rewind target
+  if(!targetSnap) return;
+
+  // Build visible rewind frames between target and now
+  const frames=STATE_HISTORY.filter(s=>s.ts&&s.ts>=targetSnap.ts&&s.ts<=now);
+  if(frames.length<2){
+    applySnapshotState(targetSnap,true);
+    return;
+  }
+
+  rewindPlayback={frames,idx:frames.length-1,timer:0,stepMs:36,targetSnap};
+  showSpellFlash('⏪  REWINDING...','#60e0ff');
 }
 
 // ── Spell cooldown HUD ───────────────────────────────────
@@ -1900,6 +1915,23 @@ function canGuardEliteShockwave(ring){
 // ── Update ─────────────────────────────────────────────────
 function update(){
   fc++;
+
+  // Rewind playback: show step-by-step rollback before final state lands
+  if(rewindPlayback){
+    const dt=(window._realDt||1)*16.667;
+    rewindPlayback.timer+=dt;
+    while(rewindPlayback.timer>=rewindPlayback.stepMs&&rewindPlayback.idx>=0){
+      rewindPlayback.timer-=rewindPlayback.stepMs;
+      applySnapshotState(rewindPlayback.frames[rewindPlayback.idx],false);
+      rewindPlayback.idx--;
+    }
+    if(rewindPlayback.idx<0){
+      applySnapshotState(rewindPlayback.targetSnap,true);
+      rewindPlayback=null;
+    }
+    return;
+  }
+
   updateSpell();
   updateForms();
   if(!['tutorial','playing','practice'].includes(gs))return;
@@ -2469,7 +2501,28 @@ function draw(){
   drawTrail();drawEnemies();drawPlayer();drawDmgNums();
   if(stage===10) drawQuadrantHUD();
   if(gs==='practice') drawPracticeGate();
+  if(rewindPlayback) drawRewindPlayback();
   drawSpellFlash();
+}
+
+function drawRewindPlayback(){
+  ctx.save();
+  const t=Math.max(0,Math.min(1,(rewindPlayback.idx+1)/(rewindPlayback.frames.length||1)));
+  ctx.globalAlpha=0.12+0.18*t;
+  ctx.fillStyle='#60e0ff';
+  ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=0.85;
+  ctx.strokeStyle='rgba(120,230,255,.65)';
+  ctx.setLineDash([8,8]);
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(180,240,255,.9)';
+  ctx.font='bold 14px Orbitron';ctx.textAlign='center';
+  ctx.fillText('REWIND PLAYBACK',W/2,46);
+  ctx.font='10px Orbitron';
+  ctx.fillText('TIME ROLLING BACK...',W/2,66);
+  ctx.textAlign='left';
+  ctx.restore();
 }
 
 function drawPracticeGate(){

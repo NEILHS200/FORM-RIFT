@@ -301,7 +301,7 @@ const FORMS={
     id:'acute',name:'ACUTE',role:'ASSASSIN',
     color:'#ff4060',size:16,speed:4.2,dmgMult:1.4,
     desc:'Dash assassin. Click to spawn edge-dash clones from your position.',
-    attackGuide:'Attack: A larger ghost equilateral appears at your cursor. Each click traces the 3 edges clockwise once, with damage synced to the edge-trace animation (costs EN). Ultimate: At full ULT, right-click enters a 3-charge dash mode for 10s.',
+    attackGuide:'Attack: A larger ghost equilateral appears at your cursor. Each click traces the 3 edges clockwise once, with damage synced to the edge-trace animation (costs EN). Ultimate: At full ULT, right-click starts a 10s window with 3 dash casts.',
     icon:'◈',
     draw(ctx,s,fc){
       const col=this.color;
@@ -604,12 +604,30 @@ C.addEventListener('contextmenu',e=>{
   const tx=e.clientX-r.left,ty=e.clientY-r.top;
 
   if(currentForm().id==='acute'){
-    if(P.ult>=P.maxUlt && !acuteUltDash){
+    // First press on full ULT starts 10s / 3-cast window and fires immediately
+    if(!acuteUltMode.active && P.ult>=P.maxUlt){
       P.ult=0;updateUltHUD();
-      fireAcuteUltDash(tx,ty);
-      if(gs==='tutorial') ultUsedInTut=true;
-      return;
+      acuteUltMode={active:true,charges:3,timerMs:10000};
+      showSpellFlash('ACUTE ULT  ·  3 DASHES / 10s','#ff7088');
     }
+
+    if(acuteUltMode.active){
+      if(acuteUltDash){
+        showSpellFlash('DASH IN PROGRESS','#ff90a0');
+        return;
+      }
+      if(acuteUltMode.charges>0){
+        fireAcuteUltDash(tx,ty);
+        acuteUltMode.charges--;
+        if(acuteUltMode.charges<=0){
+          acuteUltMode.active=false;acuteUltMode.timerMs=0;
+          showSpellFlash('ACUTE ULT ENDED','#ff7088');
+        }
+        if(gs==='tutorial') ultUsedInTut=true;
+        return;
+      }
+    }
+
     showSpellFlash('ULT NOT READY','#80c0ff');
     return;
   }
@@ -1765,6 +1783,14 @@ function updateForms(){
   if(!['tutorial','playing','practice'].includes(gs)) return;
   const dt=(window._realDt||1)*16.667;
   const ts=timeScale*(window._realDt||1);
+
+  if(acuteUltMode.active){
+    acuteUltMode.timerMs-=dt;
+    if(acuteUltMode.timerMs<=0){
+      acuteUltMode.active=false;acuteUltMode.charges=0;acuteUltMode.timerMs=0;
+      showSpellFlash('ACUTE ULT EXPIRED','#ff7088');
+    }
+  }
   if(tabCooldownMs>0){
     tabCooldownMs=Math.max(0,tabCooldownMs-dt);
     updateFormHUD();
